@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DataOrigin {
+  REAL
+  SYNTHETIC
+}
+
+enum DiscoverySource {
+  CATALOG
+  SEARCH
+  PLAYLIST
+  RECOMMENDATION
+  REGIONAL_CHART
+}
+
+model Region {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(40)
+  name        String           @db.VarChar(120)
+  countryCode String           @db.Char(2)
+  parentId    String?          @db.Uuid
+  parent      Region?          @relation("RegionHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Region[]         @relation("RegionHierarchy")
+  users       User[]
+  events      ListeningEvent[]
+
+  @@index([countryCode])
+}
+
+model User {
+  id                String           @id @default(uuid()) @db.Uuid
+  email             String           @unique @db.VarChar(254)
+  username          String           @unique @db.VarChar(40)
+  displayName       String           @db.VarChar(100)
+  passwordHash      String
+  regionId          String?          @db.Uuid
+  locationConsentAt DateTime?        @db.Timestamptz(3)
+  dataOrigin        DataOrigin       @default(REAL)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
+  region            Region?          @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  tracks            Track[]
+  playlists         Playlist[]
+  likes             Like[]
+  events            ListeningEvent[]
+}
+
+model Artist {
+  id     String  @id @default(uuid()) @db.Uuid
+  name   String  @db.VarChar(150)
+  tracks Track[]
+
+  @@index([name])
+}
+
+model Track {
+  id              String           @id @default(uuid()) @db.Uuid
+  title           String           @db.VarChar(200)
+  artistId        String           @db.Uuid
+  uploaderId      String           @db.Uuid
+  durationMs      Int
+  audioKey        String           @unique
+  coverKey        String?
+  rightsStatement String
+  dataOrigin      DataOrigin       @default(REAL)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  artist          Artist           @relation(fields: [artistId], references: [id], onDelete: Restrict)
+  uploader        User             @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+  genres          TrackGenre[]
+  playlists       PlaylistTrack[]
+  likes           Like[]
+  events          ListeningEvent[]
+
+  @@index([artistId])
+  @@index([uploaderId])
+  @@index([createdAt])
+  @@index([title])
+}
+
+model Genre {
+  id     String       @id @default(uuid()) @db.Uuid
+  name   String       @unique @db.VarChar(80)
+  tracks TrackGenre[]
+}
+
+model TrackGenre {
+  trackId String @db.Uuid
+  genreId String @db.Uuid
+  track   Track  @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  genre   Genre  @relation(fields: [genreId], references: [id], onDelete: Restrict)
+
+  @@id([trackId, genreId])
+  @@index([genreId])
+}
+
+model Playlist {
+  id        String          @id @default(uuid()) @db.Uuid
+  ownerId   String          @db.Uuid
+  title     String          @db.VarChar(150)
+  isPublic  Boolean         @default(false)
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime        @updatedAt @db.Timestamptz(3)
+  owner     User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tracks    PlaylistTrack[]
+
+  @@index([ownerId])
+}
+
+model PlaylistTrack {
+  playlistId String   @db.Uuid
+  trackId    String   @db.Uuid
+  position   Int
+  addedAt    DateTime @default(now()) @db.Timestamptz(3)
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, trackId])
+  @@unique([playlistId, position])
+  @@index([trackId])
+}
+
+model Like {
+  userId    String   @db.Uuid
+  trackId   String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([userId, trackId])
+  @@index([trackId, createdAt])
+}
+
+// Qualified listens only. Unqualified playback heartbeats are not retained here.
+// The API will issue the session UUID and derive user, timestamp, duration, and region.
+model ListeningEvent {
+  id                String          @id @default(uuid()) @db.Uuid
+  playbackSessionId String          @unique @db.Uuid
+  userId            String          @db.Uuid
+  trackId           String          @db.Uuid
+  occurredAt        DateTime        @default(now()) @db.Timestamptz(3)
+  listenedMs        Int
+  completionRatio   Float
+  regionId          String?         @db.Uuid
+  source            DiscoverySource
+  dataOrigin        DataOrigin      @default(REAL)
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track             Track           @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  region            Region?         @relation(fields: [regionId], references: [id], onDelete: SetNull)
+
+  @@index([dataOrigin, occurredAt])
+  @@index([dataOrigin, trackId, occurredAt])
+  @@index([dataOrigin, regionId, occurredAt])
+  @@index([userId, occurredAt])
+}
