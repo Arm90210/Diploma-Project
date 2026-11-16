@@ -96,7 +96,7 @@ Preview collections are browser-local and partitioned by account. Community memb
 
 Verified production build and 23 API tests; live database tests cover sessions and profile persistence. Browser checked desktop and 390px mobile layouts, audio playback with advancing time, likes, playlist creation and adding tracks, community/chart navigation and account dialog. This milestone improves presentation coverage; it is not a claim that 40% of the full research/backend scope is complete.
 
-## 2026-11-17 — Database-backed catalog (implemented; full local verification pending)
+## 2026-11-17 — Database-backed catalog
 
 Handoff check: local `main` and `origin/main` were the same commit (`ab4fd0e`) and every tracked source/doc file on the development machine matched it byte for byte, so there was no uncommitted work. README and STEPS were behind the code (account screens/profile editing already existed); both are corrected.
 
@@ -108,7 +108,7 @@ Handoff check: local `main` and `origin/main` were the same commit (`ab4fd0e`) a
 - Frontend loads tracks from the API (`useCatalog`), with honest loading, error-with-retry and empty-catalog states; the player starts empty and is primed when the catalog arrives. Editorial mixes reference slugs. Genre tabs derive from catalog genres (now alphabetical). Visual design unchanged.
 - Browser-stored preview likes/playlists that used the old IDs (`study-0` …) are converted to database UUIDs when the catalog loads; unknown IDs are kept, duplicates removed. Library storage itself is still browser-local.
 
-### Verified in this session (cloud workspace; project dependencies could not be installed there)
+### Checked first in a cloud workspace (before local verification)
 
 | Check | Result |
 | --- | --- |
@@ -119,10 +119,21 @@ Handoff check: local `main` and `origin/main` were the same commit (`ab4fd0e`) a
 | Frontend catalog-logic tests (legacy-ID migration, API mapping) | 3/3 passed with Node 24 |
 | Strict TypeScript check of the dependency-free catalog modules | Passed |
 
-### Not yet verified — run on the development machine
+### Verified on the development machine (Node 24, PostgreSQL 17 via Docker)
 
-The machine's own shell was unavailable (insufficient free disk space for the sandbox), and the cloud workspace could not install npm packages. Therefore the full `npm run typecheck`, `npm run build`, the HTTP tests in `test/catalog.test.ts`, `npm run test:db` (including the new `catalog.integration.mjs` and the updated `database.integration.mjs`), Prisma client generation and browser playback **have not been run yet** for this step. Do not mark the step complete until they pass.
+| Check | Result |
+| --- | --- |
+| `npm run db:generate` | Passed |
+| `npm run typecheck` (both apps) | Passed |
+| `npm test` | 33 API tests and 3 frontend tests passed |
+| `npm run build` (both apps) | Passed |
+| `npm run db:migrate` | All 3 migrations applied; none pending |
+| `npm run db:seed`, repeated | Passed: 8 tracks, 0 created, 8 updated (idempotent) |
+| `npm run test:db -w apps/api` | 3/3 passed: catalog (repeatable seed, REAL-only API, search, detail, genres), schema/constraints, login lifecycle |
+| Browser checklist before commit | Track list loads from the API, Play the mix plays with advancing time, search "night" finds Night Drive, earlier library items remain |
+
+Not covered: the loading/error/empty states were implemented but not exercised in a browser with the API stopped; mobile layout was not re-inspected for this step (no layout changes were made).
 
 ### Next
 
-Run the checks above; then account-backed likes and playlists (step 2 of the agreed order), including server-side import of these browser-local collections after sign-in.
+Account-backed likes and playlists (step 2 of the agreed order), including server-side import of these browser-local collections after sign-in.
