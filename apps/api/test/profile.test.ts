@@ -1,0 +1,21 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import request from 'supertest';
+import { createApp } from '../src/app.js';
+import type { SessionService } from '../src/modules/auth/sessions.js';
+const user = { id: 'owner', email: 'preview@example.invalid', username: 'preview', displayName: 'Preview', createdAt: new Date() };
+const origin = 'http://localhost:5173';
+test('profile updates require a session and trusted origin and derive ownership from the session', async () => {
+  const calls: string[][] = [];
+  const token = 'a'.repeat(64);
+  const sessions: SessionService = { login: async () => null, currentUser: async value => value === token ? user : null, logout: async () => {}, removeExpired: async () => ({ count: 0 }) };
+  const app = createApp({ checkDatabase: async () => {}, sessions, allowedOrigins: [origin], updateProfile: async (id, displayName) => { calls.push([id, displayName]); return { ...user, displayName }; } });
+  const change = () => request(app).patch('/api/users/me').set('Origin', origin).set('Cookie', `musicsphere_session=${token}`);
+  await request(app).patch('/api/users/me').set('Origin', origin).send({ displayName: 'New' }).expect(401);
+  await change().set('Origin', 'https://untrusted.invalid').send({ displayName: 'New' }).expect(403);
+  for (const body of [{ displayName: '' }, { displayName: 'x'.repeat(101) }, { displayName: 'Bad\nname' }, { displayName: 'New', id: 'victim' }, { email: 'other@example.invalid' }]) await change().send(body).expect(400);
+  const result = await change().send({ displayName: '  New Name  ' }).expect(200);
+  assert.deepEqual(calls, [['owner', 'New Name']]);
+  assert.equal(result.body.user.displayName, 'New Name');
+  assert.equal(result.headers['cache-control'], 'no-store');
+});

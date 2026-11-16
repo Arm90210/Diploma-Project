@@ -6,7 +6,7 @@ The diploma MVP is a small, complete vertical slice: register/login, upload a pe
 
 Keep the first release focused: one primary artist per track, no album management, one entry per track in each playlist, authenticated uploads, and coarse manually selected regions. The database permits multi-genre tracks. Track search begins with bounded case-insensitive queries; full text search is justified only after measuring performance.
 
-Final target adds public user profiles/playlists, follows, comments and 1–5 reviews, friend activity, artist analytics, regional/time filters, and a reliable demonstration with documentation. Album browsing can follow the core catalog. Collaborative playlists, external catalogs, automated location inference, complex forecasting, and advanced ML are optional extensions. External Spotify access is not required.
+The first working social version adds public profiles/playlists, follows (mutual follows define friends), public communities, discussions, reactions and basic moderation. The diploma target includes 1–5 reviews, a privacy-aware activity feed, regional/time filters and a reliable demonstration. Community Discovery and Community Pulse are high-priority extensions; artist analytics and displayed friend compatibility are optional. See [the community design](COMMUNITIES.md) for data rules, mathematics and added schedule estimates. Album browsing can follow the core catalog. Collaborative playlists, external catalogs, automated location inference, complex forecasting, and advanced ML are optional extensions. External Spotify access is not required.
 
 ## Phases and completion gates
 
@@ -18,9 +18,11 @@ Work estimates are approximate focused development days, not deadlines; allow ad
 | 2a | Registration/login/logout, password hashing, session cookies, profile, account permissions | Session revocation, duplicate accounts, unauthenticated access and ownership tested | 3–5 days |
 | 2b | Authorized uploads, validated audio/cover, track catalog/search, byte-range streaming, player/queue | Real permitted audio plays and seeks; invalid files rejected; upload/stream limits tested | 4–6 days |
 | 3 | Playlists, ordering, likes, public sharing; later follows/comments/reviews | Ownership enforcement, uniqueness, reorder transaction, persistence verified | 3–5 days |
+| 3b | Public communities, memberships, discussions, reactions, follows and blocking | Membership/ownership permissions, moderation, visibility and duplicate operations tested | 5–8 days |
 | 4 | Server-issued playback sessions, heartbeats, qualified listens, history/personal analytics, seeded generator | Pause/seek/retry/duplicate rules tested; deterministic synthetic data isolated | 4–6 days |
 | 5 | Regional aggregates, suppression, charts and comparisons, trend score | Known synthetic trend recovered; low counts hidden; consent withdrawal tested | 4–6 days |
 | 6 | Preference vectors, cosine neighbors, rankings, chronological evaluation | Reproducible comparison against popularity, limitations recorded | 4–6 days |
+| 6b | Community Discovery and Community Pulse | Chronological baseline comparison, membership history, suppression and churn tests | 4–6 days |
 | 7 | Integration tests, query plans, UX/security checks, thesis diagrams, demo instructions | Clean setup on another machine and rehearsed end-to-end defense | 4–6 days |
 
 Start each phase with a short explanation and acceptance criteria. Finish with tests, a runnable app, and an updated progress log. Do not implement every table or install every planned package ahead of its feature.

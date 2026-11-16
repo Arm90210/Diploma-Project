@@ -1,14 +1,22 @@
-# Resonance — Music Preference and Demand Dynamics Analysis System
+# MusicSphere — Music Preference and Demand Dynamics Analysis System
 
 Bachelor's diploma in Applied Mathematics.
 
 **Official title:** «Երաժշտական նախասիրությունների և պահանջարկի դինամիկայի վերլուծության համակարգի մշակում»
 
-Resonance is a working name. This repository currently contains **Phase 1 foundations**, not a finished streaming service. There are no accounts, uploads, audio playback, recommendations, or analytics endpoints yet. The homepage shows actual connection checks and a roadmap; it contains no fabricated music statistics.
+MusicSphere is the working product name: music streaming and social discovery through people and communities. This repository currently contains **Phase 1 foundations and Phase 2a authentication APIs**. Registration, login, current-user and logout APIs are implemented with database-backed sessions. Account screens, profile editing, uploads, audio playback, recommendations, and analytics endpoints are still planned. The homepage shows actual connection checks and a roadmap; it contains no fabricated music statistics.
 
 ## Start locally
 
-Recommended: **Node.js 24 LTS with its bundled npm**, and Docker with the Compose plugin. `.nvmrc` records Node 24 for users of nvm. The installed Node 20.20.2 can compile this foundation, but the workspace's npm 12 warns that this Node version is unsupported. Use a compatible Node/npm pair for ongoing development.
+Use **Node.js 24 with its bundled npm 11**, and Docker with the Compose plugin. `.nvmrc` selects Node 24. With an existing nvm installation, activate it before running project commands:
+
+```sh
+source ~/.nvm/nvm.sh
+nvm install
+nvm use
+```
+
+This changes the active shell's runtime; a new terminal may need `nvm use` again. Do not combine the system Node 20 executable with npm 12.
 
 Run these commands from the repository root:
 
@@ -33,6 +41,7 @@ The frontend and health endpoint work without PostgreSQL; the database card will
 | `npm run dev` | Run Vite and Express together; stop both with Ctrl+C |
 | `npm run typecheck` | Check both TypeScript apps |
 | `npm run build` | Compile API and build frontend into their respective `dist` folders |
+| `npm run test:db -w apps/api` | Build API and verify PostgreSQL constraints and login lifecycle; test fixtures are rolled back or cleaned up |
 | `npm test` | Test API liveness, readiness failure/success, and HTTP errors |
 | `npm run db:validate` | Validate Prisma schema (requires `.env`, not a live database) |
 | `npm run db:generate` | Generate typed Prisma client after schema edits |
@@ -61,12 +70,16 @@ compose.yaml               Local PostgreSQL with persistent storage
 docs/                      Scope, architecture, mathematics, progress
 ```
 
-The browser sends `fetch('/api/...')`. Vite forwards that request to Express in development. Express validates inputs and applies authorization before using Prisma; Prisma translates queries into PostgreSQL operations. Express returns JSON, which React displays. The browser never receives database credentials or queries PostgreSQL directly. Currently only health/readiness endpoints exist. Upload storage and audio range responses arrive in Phase 2.
+The browser sends `fetch('/api/...')`. Vite forwards that request to Express in development. Express validates inputs and applies authorization before using Prisma; Prisma translates queries into PostgreSQL operations. Express returns JSON, which React displays. The browser never receives database credentials or queries PostgreSQL directly. Health/readiness and registration/login/current-user/logout endpoints exist. Upload storage and audio range responses arrive in Phase 2.
 
-We use one repository and one database, without microservices, Redis, or a separate Python service. Mathematical functions can be ordinary tested TypeScript modules. Prisma 6.19 is deliberately pinned with its matching client for a simple, established configuration; upgrades are explicit later work. Tailwind uses its Vite integration. Recharts is deferred until there is real analytics data to plot.
+We use one repository and one database, without microservices, Redis, or a separate Python service. Mathematical functions can be ordinary tested TypeScript modules. Prisma 7.10.1, its client and PostgreSQL adapter are pinned together. `apps/api/prisma.config.ts` configures CLI migrations; `src/db.ts` configures the runtime connection pool. Tailwind uses its Vite integration. Recharts is deferred until there is real analytics data to plot.
 
 ## Project documents
 
+Start with the [step-by-step build checklist](docs/STEPS.md). Phase 1 is verified locally. Phase 2a is in progress: authentication APIs are implemented; account screens and profile editing are next.
+
+- [Communities, friends, discovery and Community Pulse](docs/COMMUNITIES.md)
+- [Authentication API and session contract](docs/AUTHENTICATION.md)
 - [Scope, phases, acceptance criteria](docs/ROADMAP.md)
 - [Database design and architecture](docs/ARCHITECTURE.md)
 - [Mathematical models and evaluation plan](docs/MATHEMATICS.md)
@@ -78,6 +91,6 @@ Only self-created or authorized music is allowed. All future statistics describe
 
 - [Vite setup and runtime requirements](https://vite.dev/guide/)
 - [Tailwind's Vite integration](https://tailwindcss.com/docs/installation/using-vite)
-- [Prisma 6 schema reference](https://www.prisma.io/docs/orm/v6/reference/prisma-schema-reference)
+- [Prisma 7 upgrade guide](https://www.prisma.io/docs/guides/upgrade-prisma-orm/v7)
 
-The last verification run could not inspect the UI in a browser or apply the migration: browser session access failed, and PostgreSQL/Docker are absent on this machine. See the progress log for exact results and dependency advisory status. The tested development servers can run while the database is unavailable.
+PostgreSQL is now running locally and the initial migration and live database checks have passed. Desktop browser verification passed, including connection refresh and section navigation; mobile checks remain later work. See the progress log for exact results. If your account lacks Docker socket access, prefix the Compose startup command with `sudo`; Prisma commands run without sudo.

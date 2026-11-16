@@ -43,3 +43,7 @@ Test normalization, identical/disjoint distributions, missing genres, empty coho
 ## Shared evaluation rules
 
 Record dataset seed, generator version, reference date, origin, split boundaries, catalog snapshot, model version, weights, thresholds, eligibility and sample counts. Keep a small hand-worked fixture for each formula and test zero vectors, ties, no data, UTC boundaries, retries and sparse regions. Never tune on the final test set. Dashboard labels must say 'Our platform' or 'Synthetic demonstration', and show the time range and minimum sample rules.
+
+## Community extension
+
+See [Communities and social discovery](COMMUNITIES.md) for the planned social entities, membership history, community preference vectors, normalized matching score, chronological evaluation and Community Pulse privacy rules. These extend the existing models and arrive in later migrations and feature phases.

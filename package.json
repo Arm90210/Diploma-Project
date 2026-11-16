@@ -1,7 +1,13 @@
 {
-  "name": "music-demand-diploma", "private": true,
-  "workspaces": ["apps/*"],
-  "engines": { "node": ">=20.19.0" },
+  "name": "music-demand-diploma",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "npm": ">=11 <12"
+  },
   "scripts": {
     "dev": "concurrently -k -n api,web \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
     "build": "npm run build --workspaces",
@@ -11,5 +17,8 @@
     "db:validate": "npm run db:validate -w apps/api",
     "db:migrate": "npm run db:migrate -w apps/api"
   },
-  "devDependencies": { "concurrently": "^9.2.1", "typescript": "~5.9.3" }
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "~5.9.3"
+  }
 }

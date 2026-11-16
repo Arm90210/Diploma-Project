@@ -78,3 +78,7 @@ erDiagram
 | Unknown route | — | 404 JSON error |
 
 Readiness does not inspect migration state. Requests use JSON; bodies larger than 32 KiB are rejected. Uploads will need a dedicated bounded multipart route. Database errors never return connection strings to clients.
+
+## Community extension
+
+See [Communities and social discovery](COMMUNITIES.md) for the planned social entities, membership history, community preference vectors, normalized matching score, chronological evaluation and Community Pulse privacy rules. These extend the existing models and arrive in later migrations and feature phases.

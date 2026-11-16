@@ -1,14 +1,20 @@
+import { usersRouter, type UpdateProfile } from './modules/users/router.js';
 import express, { type ErrorRequestHandler } from 'express';
 import helmet from 'helmet';
+import { authRouter } from './modules/auth/router.js';
+import type { registrationService } from './modules/auth/registration.js';
+import type { SessionService } from './modules/auth/sessions.js';
 
-type Dependencies = { checkDatabase: () => Promise<void> };
+type Dependencies = { updateProfile?: UpdateProfile; checkDatabase: () => Promise<void>; register?: ReturnType<typeof registrationService>; allowedOrigins?: string[]; sessions?: SessionService; secureCookies?: boolean };
 
 // Inject the database check so HTTP behavior can be tested without PostgreSQL.
-export function createApp({ checkDatabase }: Dependencies) {
+export function createApp({ checkDatabase, register, sessions, updateProfile, secureCookies = process.env.NODE_ENV === 'production', allowedOrigins = [] }: Dependencies) {
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet());
+  if (register || sessions) app.use('/api/auth', authRouter({ register, sessions, allowedOrigins, secureCookies }));
   app.use(express.json({ limit: '32kb' }));
+  if (sessions && updateProfile) app.use('/api/users', usersRouter(sessions, updateProfile, allowedOrigins, secureCookies));
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'music-api', phase: 1 });
