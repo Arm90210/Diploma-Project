@@ -12,10 +12,11 @@
     "dev": "concurrently -k -n api,web \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
-    "test": "npm run test -w apps/api",
+    "test": "npm run test --workspaces",
     "db:generate": "npm run db:generate -w apps/api",
     "db:validate": "npm run db:validate -w apps/api",
-    "db:migrate": "npm run db:migrate -w apps/api"
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

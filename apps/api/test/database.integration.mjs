@@ -15,7 +15,7 @@ test('live PostgreSQL: migrated schema, constraints and API readiness', async ()
       assert.ok(tables.some(t => t.tablename === name), `Missing table: ${name}`);
     }
     const constraints = await db.$queryRaw`SELECT conname FROM pg_constraint WHERE contype = 'c' AND connamespace = 'public'::regnamespace`;
-    for (const name of ['Track_duration_positive','PlaylistTrack_position_nonnegative','ListeningEvent_duration_positive','ListeningEvent_completion_range','User_region_requires_consent','Region_not_own_parent','Session_expiry_after_creation','Session_token_hash_format']) {
+    for (const name of ['Track_duration_positive','PlaylistTrack_position_nonnegative','ListeningEvent_duration_positive','ListeningEvent_completion_range','User_region_requires_consent','Region_not_own_parent','Session_expiry_after_creation','Session_token_hash_format','Track_slug_format']) {
       assert.ok(constraints.some(c => c.conname === name), `Missing CHECK: ${name}`);
     }
     const rollback = new Error('Rollback verification fixtures');
@@ -23,7 +23,7 @@ test('live PostgreSQL: migrated schema, constraints and API readiness', async ()
       const id = randomUUID();
       const user = await tx.user.create({ data: { email: `${id}@example.invalid`, username: id, displayName: 'Database test', passwordHash: 'not-a-login-hash', dataOrigin: 'SYNTHETIC' } });
       const artist = await tx.artist.create({ data: { name: 'Database test' } });
-      const track = await tx.track.create({ data: { title: 'Database test', uploaderId: user.id, artistId: artist.id, durationMs: 1000, audioKey: id, rightsStatement: 'Test fixture; no audio', dataOrigin: 'SYNTHETIC' } });
+      const track = await tx.track.create({ data: { slug: `test-${id}`, title: 'Database test', uploaderId: user.id, artistId: artist.id, durationMs: 1000, audioKey: id, rightsStatement: 'Test fixture; no audio', dataOrigin: 'SYNTHETIC' } });
       async function rejected(sql, values, expectedCode) {
         await tx.$executeRawUnsafe('SAVEPOINT invalid_input');
         try {

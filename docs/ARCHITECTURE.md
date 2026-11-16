@@ -12,7 +12,7 @@ As features arrive, group API code by domain under `src/modules/auth`, `catalog`
 | --- | --- |
 | User | Unique canonical email and username, password hash, optional consented coarse region, data origin |
 | Artist | Catalog identity, nonunique display name (different artists may share names) |
-| Track | Primary artist, uploader, positive duration, unique storage key, rights statement, cover key, origin |
+| Track | Unique slug (lowercase words joined by hyphens, CHECK-enforced), primary artist, optional uploader (null for platform-curated tracks such as the seeded demo studies), positive duration, unique storage key, rights statement, cover key, origin |
 | Genre / TrackGenre | Unique genre name and many-to-many track membership |
 | Playlist / PlaylistTrack | Owner and visibility; unique membership and position within each playlist |
 | Like | One like per user/track with timestamp |
@@ -78,6 +78,20 @@ erDiagram
 | Unknown route | — | 404 JSON error |
 
 Readiness does not inspect migration state. Requests use JSON; bodies larger than 32 KiB are rejected. Uploads will need a dedicated bounded multipart route. Database errors never return connection strings to clients.
+
+## Catalog HTTP contract (implemented 2026-11-17)
+
+Public and read-only; no session required and no user data exposed. Every query is restricted to `dataOrigin = REAL`, so synthetic evaluation tracks never appear in the product catalog.
+
+| Request | Success | Failure |
+| --- | --- | --- |
+| `GET /api/catalog/tracks?q=&genre=&limit=&offset=` | 200: `{ tracks, total, limit, offset }`; `q` matches title, artist or genre (case-insensitive, ≤100 chars), `genre` is an exact case-insensitive name, `limit` 1–100 (default 50), `offset` 0–10000; ordered by creation time, then slug | 400 for unknown, repeated or out-of-range parameters |
+| `GET /api/catalog/tracks/:ref` | 200: `{ track }`, `ref` is a UUID or slug | 400 malformed reference; 404 unknown or non-REAL track |
+| `GET /api/catalog/genres` | 200: `{ genres: [{ name, trackCount }] }`, REAL tracks only, empty genres omitted | — |
+
+A track is returned as `{ id, slug, title, artist: { id, name }, genres, durationMs, audioUrl, coverUrl }`. Storage keys, uploader, rights text and origin stay server-side. Keys beginning `static/` are bundled demo assets served by the frontend (`static/audio/study-0.wav` → `/audio/study-0.wav`); any other key has a `null` URL until the upload/streaming step serves files through the API with access checks.
+
+The demo catalog is inserted by `npm run db:seed` (`src/modules/catalog/seed.ts`): one transaction, rows matched by a fixed artist ID, unique genre name and unique track slug, so re-running it updates the same rows and keeps track UUIDs stable. It never deletes other catalog data. The demo studies are marked REAL: they are actual playable catalog entries; "synthesized audio" is unrelated to the SYNTHETIC label, which is reserved for generated evaluation users and events.
 
 ## Community extension
 

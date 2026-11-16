@@ -17,7 +17,7 @@ Done when: a clean setup starts both apps and the database; builds and HTTP test
 - [x] 2a.1 Define account/session API contracts, validation and session migration.
 - [x] 2a.2 Implement registration with password hashing and duplicate-account handling.
 - [x] 2a.3 Implement login, revocable cookie sessions, current-user endpoint and logout.
-- [ ] 2a.4 Build registration/login screens and editable basic profile.
+- [x] 2a.4 Build registration/login screens and editable basic profile. (Interface milestone, 2026-11-16.)
 - [ ] 2a.5 Test authorization, session expiry/revocation, CSRF protection and login limits.
 
 Done when: register, log in, reload while signed in, edit your own profile and log out; another user's private data remains inaccessible.
@@ -25,7 +25,7 @@ Done when: register, log in, reload while signed in, edit your own profile and l
 ## Phase 2b — Uploads, catalog and playback
 
 - [ ] 2b.1 Validate permitted audio/cover uploads and store metadata plus rights declaration.
-- [ ] 2b.2 Build bounded catalog/search endpoints and track pages.
+- [ ] 2b.2 Build bounded catalog/search endpoints and track pages. Endpoints, seeded demo catalog and frontend loading done 2026-11-17; track pages pending.
 - [ ] 2b.3 Serve audio with byte-range support and access checks.
 - [ ] 2b.4 Build play/pause, seek, skip and queue controls.
 - [ ] 2b.5 Test with authorized audio, invalid uploads, seek requests and failed-upload cleanup.

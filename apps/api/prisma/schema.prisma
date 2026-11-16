@@ -62,9 +62,12 @@ model Artist {
 
 model Track {
   id              String           @id @default(uuid()) @db.Uuid
+  // Stable public identifier (e.g. "study-0"); UUID stays the primary key.
+  slug            String           @unique @db.VarChar(80)
   title           String           @db.VarChar(200)
   artistId        String           @db.Uuid
-  uploaderId      String           @db.Uuid
+  // Null for platform-curated catalog tracks (seeded demo studies).
+  uploaderId      String?          @db.Uuid
   durationMs      Int
   audioKey        String           @unique
   coverKey        String?
@@ -72,7 +75,7 @@ model Track {
   dataOrigin      DataOrigin       @default(REAL)
   createdAt       DateTime         @default(now()) @db.Timestamptz(3)
   artist          Artist           @relation(fields: [artistId], references: [id], onDelete: Restrict)
-  uploader        User             @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+  uploader        User?            @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
   genres          TrackGenre[]
   playlists       PlaylistTrack[]
   likes           Like[]

@@ -4,7 +4,7 @@ Bachelor's diploma in Applied Mathematics.
 
 **Official title:** «Երաժշտական նախասիրությունների և պահանջարկի դինամիկայի վերլուծության համակարգի մշակում»
 
-MusicSphere is the working product name: music streaming and social discovery through people and communities. This repository currently contains **Phase 1 foundations and Phase 2a authentication APIs**. Registration, login, current-user and logout APIs are implemented with database-backed sessions. Account screens, profile editing, uploads, audio playback, recommendations, and analytics endpoints are still planned. The homepage shows actual connection checks and a roadmap; it contains no fabricated music statistics.
+MusicSphere is the working product name: music streaming and social discovery through people and communities. Implemented so far: the foundation, database-backed accounts and sessions (register, log in, sign out, edit display name), a responsive MusicSphere interface with a working audio player, and a **database-backed music catalog** served by `/api/catalog` (seeded with eight original demo studies). Still preview-only (browser-local or illustrative): likes and playlists, community membership and posts, Music Pulse charts. Not yet implemented: uploads, listening-event collection, friends, recommendations and real analytics. See [PROGRESS.md](docs/PROGRESS.md) for exactly what is verified.
 
 ## Start locally
 
@@ -27,6 +27,7 @@ cp apps/api/.env.example apps/api/.env
 docker compose up -d --wait db
 npm run db:generate
 npm run db:migrate
+npm run db:seed     # original demo catalog; safe to repeat
 npm run dev
 ```
 
@@ -41,11 +42,12 @@ The frontend and health endpoint work without PostgreSQL; the database card will
 | `npm run dev` | Run Vite and Express together; stop both with Ctrl+C |
 | `npm run typecheck` | Check both TypeScript apps |
 | `npm run build` | Compile API and build frontend into their respective `dist` folders |
-| `npm run test:db -w apps/api` | Build API and verify PostgreSQL constraints and login lifecycle; test fixtures are rolled back or cleaned up |
-| `npm test` | Test API liveness, readiness failure/success, and HTTP errors |
+| `npm run test:db -w apps/api` | Build API and verify PostgreSQL constraints, login lifecycle and catalog; fixtures are rolled back or cleaned up (the demo catalog itself is seeded) |
+| `npm test` | API HTTP/unit tests (health, auth, profile, catalog) and frontend catalog-logic tests; no database needed |
 | `npm run db:validate` | Validate Prisma schema (requires `.env`, not a live database) |
 | `npm run db:generate` | Generate typed Prisma client after schema edits |
 | `npm run db:migrate` | Apply committed migrations to PostgreSQL |
+| `npm run db:seed` | Insert or update the eight original demo tracks (matched by slug; never deletes other data) |
 | `npm exec -w apps/api -- prisma migrate dev --name descriptive_name` | Create a migration after changing the schema, with a local database running |
 | `docker compose stop` | Stop database, preserve stored data |
 
@@ -56,13 +58,16 @@ Production deployment is a later phase. `npm run start -w apps/api` runs the com
 ```text
 apps/
   web/                     React + TypeScript + Vite + Tailwind
-    src/App.tsx            Foundation screen and connection checks
+    src/App.tsx            MusicSphere interface (pages, library, communities)
+    src/lib/useCatalog.ts  Loads tracks from /api/catalog
     src/styles.css         Responsive layout and theme
     vite.config.ts         /api development proxy
   api/                     Express + TypeScript
     src/app.ts             HTTP app; database checker injected for tests
     src/server.ts          Listen on a port, connect Prisma, stop cleanly
     src/db.ts              Shared Prisma client / connection pool
+    src/modules/catalog/   Catalog API, validation, demo seed data
+    src/seed.ts            `npm run db:seed` entry point
     prisma/schema.prisma   Relational data model
     prisma/migrations/     Versioned SQL, including database constraints
     test/app.test.ts       HTTP integration tests
@@ -70,13 +75,13 @@ compose.yaml               Local PostgreSQL with persistent storage
 docs/                      Scope, architecture, mathematics, progress
 ```
 
-The browser sends `fetch('/api/...')`. Vite forwards that request to Express in development. Express validates inputs and applies authorization before using Prisma; Prisma translates queries into PostgreSQL operations. Express returns JSON, which React displays. The browser never receives database credentials or queries PostgreSQL directly. Health/readiness and registration/login/current-user/logout endpoints exist. Upload storage and audio range responses arrive in Phase 2.
+The browser sends `fetch('/api/...')`. Vite forwards that request to Express in development. Express validates inputs and applies authorization before using Prisma; Prisma translates queries into PostgreSQL operations. Express returns JSON, which React displays. The browser never receives database credentials or queries PostgreSQL directly. Health/readiness, authentication, profile and read-only catalog endpoints exist. Upload storage and audio range responses arrive in Phase 2.
 
 We use one repository and one database, without microservices, Redis, or a separate Python service. Mathematical functions can be ordinary tested TypeScript modules. Prisma 7.10.1, its client and PostgreSQL adapter are pinned together. `apps/api/prisma.config.ts` configures CLI migrations; `src/db.ts` configures the runtime connection pool. Tailwind uses its Vite integration. Recharts is deferred until there is real analytics data to plot.
 
 ## Project documents
 
-Start with the [step-by-step build checklist](docs/STEPS.md). Phase 1 is verified locally. Phase 2a is in progress: authentication APIs are implemented; account screens and profile editing are next.
+Start with the [step-by-step build checklist](docs/STEPS.md). Phase 1 is verified locally; accounts and the interface milestone followed. The current step is the database-backed catalog, then account-backed likes and playlists.
 
 - [Communities, friends, discovery and Community Pulse](docs/COMMUNITIES.md)
 - [Authentication API and session contract](docs/AUTHENTICATION.md)

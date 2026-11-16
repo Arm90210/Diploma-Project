@@ -95,3 +95,34 @@ Built a responsive MusicSphere interface: discovery dashboard, genre/search filt
 Preview collections are browser-local and partitioned by account. Community member counts and charts are illustrative; joining is local and draft posts last for the current visit. No live social network, recommendations, cloud music uploads, or real analytics are claimed. Audio and artwork are original generated assets; reproduce with `python3 scripts/generate-demo-assets.py`.
 
 Verified production build and 23 API tests; live database tests cover sessions and profile persistence. Browser checked desktop and 390px mobile layouts, audio playback with advancing time, likes, playlist creation and adding tracks, community/chart navigation and account dialog. This milestone improves presentation coverage; it is not a claim that 40% of the full research/backend scope is complete.
+
+## 2026-11-17 — Database-backed catalog (implemented; full local verification pending)
+
+Handoff check: local `main` and `origin/main` were the same commit (`ab4fd0e`) and every tracked source/doc file on the development machine matched it byte for byte, so there was no uncommitted work. README and STEPS were behind the code (account screens/profile editing already existed); both are corrected.
+
+### Implemented
+
+- Migration `202611170001_catalog`: adds a unique `Track.slug` with a format CHECK (`Track_slug_format`) and makes `Track.uploaderId` optional so platform-curated tracks need no fake uploader account. Existing rows would be back-filled with their UUID as slug. Uploader deletion is still restricted.
+- Repeatable seed (`npm run db:seed`): the eight original studies, one artist with a fixed ID, four genres. One transaction; rows matched by ID/name/slug, so re-seeding keeps track UUIDs stable and never deletes other data. Demo tracks are REAL catalog entries (see ARCHITECTURE.md for why synthesized audio is not SYNTHETIC data).
+- Public read-only endpoints `GET /api/catalog/tracks`, `/tracks/:ref`, `/genres` with strict, bounded query validation, REAL-only filtering and an explicit public projection (no uploader, rights text or origin). Contract in ARCHITECTURE.md.
+- Frontend loads tracks from the API (`useCatalog`), with honest loading, error-with-retry and empty-catalog states; the player starts empty and is primed when the catalog arrives. Editorial mixes reference slugs. Genre tabs derive from catalog genres (now alphabetical). Visual design unchanged.
+- Browser-stored preview likes/playlists that used the old IDs (`study-0` …) are converted to database UUIDs when the catalog loads; unknown IDs are kept, duplicates removed. Library storage itself is still browser-local.
+
+### Verified in this session (cloud workspace; project dependencies could not be installed there)
+
+| Check | Result |
+| --- | --- |
+| All three migrations applied in order to a fresh PostgreSQL 16 server | Passed |
+| Slug uniqueness, format CHECK (rejects `Bad Slug`, `-a`, `a--b`), NOT NULL; null uploader accepted; UUID-text slug accepted | Passed |
+| Catalog migration on a database that already contains a track | Back-fill passed; uploader deletion still restricted |
+| Catalog contract tests (query validation, track references, URL mapping, projection, demo assets incl. WAV-header durations = 24 000 ms) | 6/6 passed |
+| Frontend catalog-logic tests (legacy-ID migration, API mapping) | 3/3 passed with Node 24 |
+| Strict TypeScript check of the dependency-free catalog modules | Passed |
+
+### Not yet verified — run on the development machine
+
+The machine's own shell was unavailable (insufficient free disk space for the sandbox), and the cloud workspace could not install npm packages. Therefore the full `npm run typecheck`, `npm run build`, the HTTP tests in `test/catalog.test.ts`, `npm run test:db` (including the new `catalog.integration.mjs` and the updated `database.integration.mjs`), Prisma client generation and browser playback **have not been run yet** for this step. Do not mark the step complete until they pass.
+
+### Next
+
+Run the checks above; then account-backed likes and playlists (step 2 of the agreed order), including server-side import of these browser-local collections after sign-in.
