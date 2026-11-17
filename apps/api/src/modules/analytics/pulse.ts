@@ -65,8 +65,13 @@ export function computePulse(input: PulseInput): PulseResult {
   // Region comparison: each region's cohort is judged on its own; hidden regions show no numbers.
   const all = sharesOf(input.events.filter(event => inWindow(event.at, current)), input.trackGenres);
   const selectedShares = suppressed ? null : sharesOf(now, input.trackGenres);
+  const byRegion = new Map<string, EventRow[]>(); // one pass over this week's events, grouped by country
+  for (const event of input.events) if (event.regionId && inWindow(event.at, current)) {
+    const list = byRegion.get(event.regionId);
+    if (list) list.push(event); else byRegion.set(event.regionId, [event]);
+  }
   const regions = input.regions.map(item => {
-    const events = input.events.filter(event => event.regionId === item.id && inWindow(event.at, current));
+    const events = byRegion.get(item.id) ?? [];
     const count = distinctUsers(events);
     if (count < minimum) return { code: item.code, name: item.name, listeners: null, suppressed: true, distance: null, shares: null };
     const shares = sharesOf(events, input.trackGenres);

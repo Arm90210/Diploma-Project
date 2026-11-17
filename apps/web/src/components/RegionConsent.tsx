@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import { Icon } from './Icon';
+import { WorldMap } from './WorldMap';
 
 type Location = { region: { code: string; name: string } | null; consentedAt: string | null };
 
@@ -37,7 +38,9 @@ export function RegionConsent() {
     <p className="muted">If you share your country, your counted listens add to that country’s regional charts. Nothing is shown about any group smaller than 10 people. No GPS or IP address is used — only the country you pick here.</p>
     {current?.region ? <p className="notice" role="status">Sharing: <strong>{current.region.name}</strong>{current.consentedAt ? ` since ${new Date(current.consentedAt).toLocaleDateString()}` : ''}.</p> : <p className="muted small">You are not sharing a country.</p>}
     <form className="region-choice" onSubmit={save}>
-      <select value={code} onChange={event => setCode(event.target.value)} aria-label="Country"><option value="">Choose a country…</option>{regions.map(region => <option key={region.code} value={region.code}>{region.name}</option>)}</select>
+      <WorldMap fill={country => country === code ? '#d3f99a' : '#4b3d57'} selected={code || null} onSelect={setCode} markers={code ? [code] : []}
+        describe={(_, name) => `${name} — click to choose`} label="World map for choosing your country. The list below offers the same choice."/>
+      <select value={code} onChange={event => setCode(event.target.value)} aria-label="Country"><option value="">Choose a country (or click the map)…</option>{regions.map(region => <option key={region.code} value={region.code}>{region.name}</option>)}</select>
       <label className="consent"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>I agree that MusicSphere records this country with my future counted listens for regional statistics. I can withdraw at any time.</span></label>
       {error && <p className="error-message" role="alert">{error}</p>}{message && <p className="notice" role="status">{message}</p>}
       <div className="track-detail-actions"><button className="primary" disabled={busy || !code || !consent}>{current?.region ? 'Update country' : 'Share country'}<Icon name="check" size={16}/></button>

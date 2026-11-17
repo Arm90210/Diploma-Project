@@ -270,3 +270,40 @@ Validation chose k = 40 without fill (k = 20 is within 0.003 NDCG). On the test 
 Browser finding and fix: the developer account had already heard all 8 demo tracks, so the recommendation list was empty and the first version hid the For you section silently. The section now always appears for signed-in users with explicit loading, error-with-retry and "you've heard everything we could suggest" states (explaining the 180-day/liked exclusion and the catalog size). Checked in the browser after the fix; the typecheck is re-run as part of the commit command.
 
 Not covered: personal ("similar listeners") picks were only exercised by the live test, because the development database has a single real listener; real-data recommendation quality cannot be measured until there are real users.
+
+## 2026-11-17 — World map and 236 countries for geographical analytics
+
+### Implemented
+
+- Country data: `scripts/build-world-map.py` converts Natural Earth 1:50m Admin 0 (public domain) with an Equal Earth projection into `apps/web/public/geo/countries.json` (239 shapes, 236 selectable, ≈160 KiB) and `analytics/countries.ts`. The first build drew nothing: closed rings gave Douglas–Peucker a zero-length baseline; fixed by splitting each ring at its farthest vertex, then checked by rendering previews. Common short names are used (e.g. Russia, South Korea, Laos).
+- Regions: `npm run db:seed` / `seedRegions` now creates all 236 countries (idempotent; existing codes keep their IDs).
+- Generator `synthetic-v2`: 900 listeners in 16 countries on every continent plus Iceland with 8 listeners (below the threshold, so the map shows suppression); genre tastes are seeded Dirichlet(2) draws, explicitly not claims about real countries. Regenerating also removes the v1 generator artist once it has no tracks.
+- `WorldMap` component (no new packages): pan by dragging, zoom buttons, auto-zoom to small selected countries, clickable dots for small countries, hover details, lime outline for the selection, accessible description; the country list stays as the accessible alternative.
+- Music Pulse: map panel at the top with three single-hue sequential modes (listeners, share of a chosen genre, similarity = 1 − TV to the selected country or to all countries); legend with the grey "hidden" class; clicking a country filters the page. "Regions compared" lists only countries with data plus a hidden count. Genre bars now use a fixed colour per genre (identity, not rank).
+- Colour checks with the dataviz validator: the previous pastel genre colours failed on the dark surface (lightness, chroma, colour-blind separation); the new fixed genre palette passes for labelled bars; a six-colour categorical map was rejected because all-pairs colour-blind separation fails (ΔE 1.4).
+- Profile: choose your country on the map or from the list.
+- `computePulse` groups this week's events by country in one pass (236 regions).
+
+### Evaluation on synthetic-v2 (EVALUATION-PULSE.md, EVALUATION-RECOMMENDATIONS.md regenerated)
+
+Trend precision@3 = 1.00 (raw growth 0.33 — it ranks the tiny-denominator track first; popularity 0.33 — it ranks the one-day spike first); spike never in the top 3; detection by the window ending 2026-11-11. Country recovery TV 0.026–0.123 for countries with ≥ 44 listeners, 0.154 for Armenia (35 listeners) and 0.192 for Iceland (8, hidden in the product); estimated vs. planted between-country distances correlate 0.905 over 136 pairs. Recommendations (850 test users): NDCG@10 0.409 vs. 0.294 for popularity, difference 95% interval [0.095, 0.133].
+
+### Checked in the cloud workspace
+
+| Check | Result |
+| --- | --- |
+| Map build and rendered previews (whole world, Caucasus close-up, listeners and similarity choropleths from real `computePulse` output) | Correct after the ring fix |
+| Pure tests (Pulse math, generator incl. Iceland and map-country names, suppression, evaluation, recommendations, listening policy, contracts) | All passed |
+
+### Verified on the development machine (first run, no fixes needed)
+
+| Check | Result |
+| --- | --- |
+| `npm run db:seed` | Demo catalog and 236 countries ready |
+| `npm run db:synthetic` | synthetic-v2: 908 users (900 + 8 in Iceland), 36 tracks, 52 126 events, 3 298 likes |
+| `npm run typecheck`, `npm run build` | Passed |
+| `npm test` | 87 API tests and 5 web tests passed |
+| `npm run test:db -w apps/api` | 7/7 passed (Pulse: all map countries are regions, database results equal the in-memory computation over 236 countries, one generator artist, Iceland at 8 listeners, consent flow) |
+| Browser check before commit | Music Pulse map (three modes, country selection, Armenia via its dot, Iceland grey) and Profile map picker |
+
+Not covered: no automated test for the map component's pan/zoom; touch dragging and the phone layout depend on a manual check.

@@ -1,12 +1,17 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
-import { GENERATOR_VERSION, GENRES, SYNTHETIC_REGIONS, type SyntheticDataset } from './synthetic.js';
+import { COUNTRIES } from './countries.js';
+import { GENERATOR_VERSION, GENRES, type SyntheticDataset } from './synthetic.js';
 
 type Tx = Prisma.TransactionClient;
 
-/** Regions are reference data shared by real and synthetic users (country level only). Idempotent. */
+/** Regions are reference data shared by real and synthetic users: every country on the map
+ * (ISO 3166-1 alpha-2, from Natural Earth via scripts/build-world-map.py). Idempotent. */
 export async function seedRegions(client: Tx | PrismaClient) {
-  for (const region of SYNTHETIC_REGIONS) {
-    await client.region.upsert({ where: { code: region.code }, create: { code: region.code, name: region.name, countryCode: region.countryCode }, update: { name: region.name, countryCode: region.countryCode } });
+  const existing = new Map((await client.region.findMany({ select: { code: true, name: true } })).map(region => [region.code, region.name]));
+  const missing = COUNTRIES.filter(country => !existing.has(country.code));
+  if (missing.length) await client.region.createMany({ data: missing.map(country => ({ code: country.code, name: country.name, countryCode: country.code })), skipDuplicates: true });
+  for (const country of COUNTRIES) {
+    if (existing.has(country.code) && existing.get(country.code) !== country.name) await client.region.update({ where: { code: country.code }, data: { name: country.name } });
   }
 }
 
@@ -22,7 +27,8 @@ export async function replaceSyntheticDataset(database: PrismaClient, data: Synt
     // sessions) and its tracks. Other SYNTHETIC rows, such as test fixtures, are left alone.
     await tx.user.deleteMany({ where: { dataOrigin: 'SYNTHETIC', email: { endsWith: '@synthetic.invalid' } } });
     await tx.track.deleteMany({ where: { dataOrigin: 'SYNTHETIC', slug: { startsWith: 'syn-track-' } } }); // cascades track genres
-    await tx.artist.deleteMany({ where: { id: data.artist.id, tracks: { none: {} } } });
+    // The generator's artist (any version) once it has no tracks left.
+    await tx.artist.deleteMany({ where: { OR: [{ id: data.artist.id }, { name: data.artist.name }], tracks: { none: {} } } });
     await tx.syntheticDataset.deleteMany({});
 
     await seedRegions(tx);

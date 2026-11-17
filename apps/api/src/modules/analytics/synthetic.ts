@@ -6,21 +6,28 @@
 //   - sustained breakout tracks, steady popular tracks, a one-day spike,
 //     a tiny-denominator track, and weekend seasonality.
 
-export const GENERATOR_VERSION = 'synthetic-v1';
+import { COUNTRIES } from './countries.js';
+
+export const GENERATOR_VERSION = 'synthetic-v2';
 export const DAY = 86_400_000;
 export const GENRES = ['Electronic', 'Ambient', 'Jazz', 'Indie', 'Hip-Hop', 'Classical'] as const;
 export type Genre = typeof GENRES[number];
-export const SYNTHETIC_REGIONS: { code: string; name: string; countryCode: string; userShare: number; prefs: Record<Genre, number> }[] = [
-  { code: 'AM', name: 'Armenia', countryCode: 'AM', userShare: 0.12, prefs: { Electronic: 0.15, Ambient: 0.10, Jazz: 0.30, Indie: 0.15, 'Hip-Hop': 0.20, Classical: 0.10 } },
-  { code: 'DE', name: 'Germany', countryCode: 'DE', userShare: 0.24, prefs: { Electronic: 0.40, Ambient: 0.15, Jazz: 0.10, Indie: 0.15, 'Hip-Hop': 0.10, Classical: 0.10 } },
-  { code: 'US', name: 'United States', countryCode: 'US', userShare: 0.34, prefs: { Electronic: 0.15, Ambient: 0.05, Jazz: 0.10, Indie: 0.20, 'Hip-Hop': 0.40, Classical: 0.10 } },
-  { code: 'FR', name: 'France', countryCode: 'FR', userShare: 0.18, prefs: { Electronic: 0.20, Ambient: 0.10, Jazz: 0.20, Indie: 0.30, 'Hip-Hop': 0.10, Classical: 0.10 } },
-  { code: 'JP', name: 'Japan', countryCode: 'JP', userShare: 0.12, prefs: { Electronic: 0.25, Ambient: 0.25, Jazz: 0.15, Indie: 0.10, 'Hip-Hop': 0.05, Classical: 0.20 } },
+// Countries in the demonstration and their share of synthetic listeners. Iceland gets a fixed
+// 8 listeners — deliberately below the privacy threshold, so the map shows suppression.
+// Genre tastes are drawn from the seed (Dirichlet(2) per country): they are arbitrary
+// demonstration values, not claims about music in real countries.
+export const SYNTHETIC_COUNTRIES: { code: string; share?: number; users?: number }[] = [
+  { code: 'US', share: 0.12 }, { code: 'IN', share: 0.09 }, { code: 'BR', share: 0.08 }, { code: 'DE', share: 0.08 },
+  { code: 'GB', share: 0.07 }, { code: 'JP', share: 0.07 }, { code: 'FR', share: 0.06 }, { code: 'MX', share: 0.06 },
+  { code: 'KR', share: 0.05 }, { code: 'NG', share: 0.05 }, { code: 'IT', share: 0.05 }, { code: 'ES', share: 0.05 },
+  { code: 'CA', share: 0.05 }, { code: 'AU', share: 0.04 }, { code: 'EG', share: 0.04 }, { code: 'AM', share: 0.04 },
+  { code: 'IS', users: 8 },
 ];
+const countryName = new Map(COUNTRIES.map(country => [country.code, country.name]));
 
 export type SyntheticConfig = { seed: number; referenceDate: number; days: number; users: number; repeatProbability: number };
 // Reference date = the exclusive end of the data (a UTC midnight); the last 7 days are the "current" window.
-export const DEFAULT_CONFIG: SyntheticConfig = { seed: 20261117, referenceDate: Date.UTC(2026, 10, 16), days: 56, users: 600, repeatProbability: 0.35 };
+export const DEFAULT_CONFIG: SyntheticConfig = { seed: 20261117, referenceDate: Date.UTC(2026, 10, 16), days: 56, users: 900, repeatProbability: 0.35 };
 
 export type Role = 'breakout' | 'steady' | 'spike' | 'tiny' | 'normal';
 export type SyntheticTrack = { id: string; slug: string; title: string; genre: Genre; role: Role; durationMs: number };
@@ -29,6 +36,7 @@ export type SyntheticEvent = { id: string; sessionId: string; userId: string; tr
 export type SyntheticDataset = {
   meta: SyntheticConfig & { generatorVersion: string };
   artist: { id: string; name: string };
+  regions: { code: string; name: string }[];
   users: SyntheticUser[]; tracks: SyntheticTrack[]; events: SyntheticEvent[]; likes: { userId: string; trackId: string; at: number }[];
   truth: { regionGenreShares: Record<string, Record<Genre, number>>; roles: Record<Role, string[]>; spikeDay: string };
 };
@@ -78,8 +86,15 @@ export function generateSynthetic(config: SyntheticConfig = DEFAULT_CONFIG): Syn
   const users: SyntheticUser[] = [];
   const tasteOf = new Map<string, Record<Genre, number>>();
   const activity = new Map<string, number>();
-  SYNTHETIC_REGIONS.forEach(region => {
-    const count = Math.round(config.users * region.userShare);
+  // Seeded Dirichlet(2) genre preferences per country (sum of two exponentials = Gamma(2)).
+  const gamma2 = () => -Math.log(1 - random()) - Math.log(1 - random());
+  const regions = SYNTHETIC_COUNTRIES.map(country => {
+    const draws = GENRES.map(() => gamma2());
+    const total = draws.reduce((sum, value) => sum + value, 0);
+    return { ...country, name: countryName.get(country.code) ?? country.code, prefs: Object.fromEntries(GENRES.map((genre, i) => [genre, draws[i]! / total])) as Record<Genre, number> };
+  });
+  regions.forEach(region => {
+    const count = region.users ?? Math.round(config.users * region.share!);
     for (let i = 0; i < count; i++) {
       const n = users.length + 1;
       const user = { id: uuid(), username: `syn_${String(n).padStart(4, '0')}`, email: `syn-${String(n).padStart(4, '0')}@synthetic.invalid`, regionCode: region.code };
@@ -138,6 +153,7 @@ export function generateSynthetic(config: SyntheticConfig = DEFAULT_CONFIG): Syn
   for (const track of tracks) roles[track.role].push(track.id);
   return {
     meta: { ...config, generatorVersion: GENERATOR_VERSION }, artist, users, tracks, events: events.sort((a, b) => a.at - b.at), likes,
-    truth: { regionGenreShares: Object.fromEntries(SYNTHETIC_REGIONS.map(region => [region.code, region.prefs])), roles, spikeDay: new Date(day0 + spikeDayIndex * DAY).toISOString().slice(0, 10) },
+    regions: regions.map(region => ({ code: region.code, name: region.name })),
+    truth: { regionGenreShares: Object.fromEntries(regions.map(region => [region.code, region.prefs])), roles, spikeDay: new Date(day0 + spikeDayIndex * DAY).toISOString().slice(0, 10) },
   };
 }

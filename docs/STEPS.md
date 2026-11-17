@@ -56,7 +56,7 @@ Done when: two accounts can connect, join a community and discuss music with wor
 - [x] 4.1 Define and persist server-issued playback sessions and sequenced heartbeats. (2026-11-17.)
 - [x] 4.2 Implement qualification, pause/seek handling, replay limits and duplicate prevention. (Policy listen-v1, 2026-11-17.)
 - [ ] 4.3 Add consent controls, listening history and personal genre/artist statistics. Listening history and region consent (choose/withdraw, withdrawal clears past event regions) done 2026-11-17; personal statistics pending.
-- [ ] 4.4 Build deterministic synthetic data with a fixed seed/date, including social and membership histories. Listening/like generator `synthetic-v1` done 2026-11-17 (`npm run db:synthetic`); social and membership histories wait for the communities step.
+- [ ] 4.4 Build deterministic synthetic data with a fixed seed/date, including social and membership histories. Listening/like generator done 2026-11-17 (`synthetic-v2`: 17 countries) (`npm run db:synthetic`); social and membership histories wait for the communities step.
 - [x] 4.5 Test time boundaries, retries, consent withdrawal and real/synthetic isolation. (2026-11-17.)
 
 Done when: playback produces trustworthy events; clicking play repeatedly cannot inflate streams; synthetic results are visibly labeled.

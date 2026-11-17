@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { computePulse, type PulseInput } from '../src/modules/analytics/pulse.js';
-import { DEFAULT_CONFIG, generateSynthetic, SYNTHETIC_REGIONS } from '../src/modules/analytics/synthetic.js';
-import { evaluatePulse, pulseInputFrom } from '../src/modules/analytics/evaluate.js';
+import { DEFAULT_CONFIG, generateSynthetic, SYNTHETIC_COUNTRIES } from '../src/modules/analytics/synthetic.js';
+import { COUNTRIES } from '../src/modules/analytics/countries.js';
+import { evaluatePulse, pearson, pulseInputFrom } from '../src/modules/analytics/evaluate.js';
 import { DAY_MS } from '../src/modules/analytics/math.js';
 
 const small = { ...DEFAULT_CONFIG, users: 150, days: 28 };
@@ -22,8 +23,10 @@ test('synthetic data has the planted structure and valid values', () => {
   assert.ok(data.events.every(event => event.at >= start && event.at < small.referenceDate));
   assert.ok(data.events.every(event => event.completion > 0 && event.completion <= 1 && event.listenedMs > 0));
   assert.equal(new Set(data.events.map(event => event.sessionId)).size, data.events.length, 'one event per session');
-  assert.equal(new Set(data.users.map(user => user.regionCode)).size, SYNTHETIC_REGIONS.length);
-  for (const region of SYNTHETIC_REGIONS) assert.ok(Math.abs(Object.values(region.prefs).reduce((sum, value) => sum + value, 0) - 1) < 1e-9);
+  assert.equal(new Set(data.users.map(user => user.regionCode)).size, SYNTHETIC_COUNTRIES.length);
+  for (const shares of Object.values(data.truth.regionGenreShares)) assert.ok(Math.abs(Object.values(shares).reduce((sum, value) => sum + value, 0) - 1) < 1e-9);
+  assert.equal(data.users.filter(user => user.regionCode === 'IS').length, 8, 'Iceland is deliberately below the privacy threshold');
+  assert.ok(data.regions.every(region => COUNTRIES.some(country => country.code === region.code && country.name === region.name)), 'synthetic countries exist on the map');
   assert.equal(new Set(data.likes.map(like => `${like.userId}|${like.trackId}`)).size, data.likes.length, 'at most one like per user/track');
 });
 test('pulse suppresses small cohorts entirely, including per-day values and previous-week counts', () => {
@@ -56,7 +59,11 @@ test('evaluation recovers the planted breakouts better than raw growth and popul
   assert.ok(report.comparison.trend!.precisionAtK > report.comparison.rawGrowth!.precisionAtK);
   assert.ok(report.comparison.trend!.precisionAtK > report.comparison.popularity!.precisionAtK);
   assert.equal(report.comparison.trend!.tinyRank, null, 'tiny-denominator track is not eligible');
-  assert.ok(report.regional.every(row => row.tvToTruth < 0.1));
-  assert.ok(Math.abs(report.mechanism.withoutReplaysOrSpike - report.mechanism.trueMean) < 0.02);
+  // Larger samples recover the planted tastes closely; small ones are noisier but bounded.
+  assert.ok(report.regional.filter(row => row.listeners >= 60).every(row => row.tvToTruth < 0.1));
+  assert.ok(report.regional.every(row => row.tvToTruth < 0.25));
+  assert.ok(pearson(report.pairs.map(p => p.estimatedTv), report.pairs.map(p => p.trueTv)) > 0.8);
+  assert.ok(Math.abs(report.mechanism.withoutReplaysOrSpike - report.mechanism.trueMean) < 0.04);
+  assert.ok(report.comparison.rawGrowth!.tinyRank !== null && report.comparison.rawGrowth!.tinyRank <= 3, 'raw growth is fooled by the tiny-denominator track');
   assert.deepEqual(report.suppressionCheck, { suppressed: true, summaryHidden: true, trendingHidden: true });
 });

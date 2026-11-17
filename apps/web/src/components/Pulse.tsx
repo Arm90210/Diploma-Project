@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api';
 import { Icon } from './Icon';
+import { HIDDEN_FILL, WorldMap } from './WorldMap';
 
 type Origin = 'REAL' | 'SYNTHETIC';
 type Share = { genre: string; share: number; count: number };
@@ -15,10 +16,14 @@ type PulseData = {
   genres: { shares: Share[]; uncategorized: number } | null;
   daily: { day: string; listeners: number | null; average7: number | null }[] | null;
   trending: TrendRow[]; popular: { track: TrackRef; listeners: number }[];
-  regions: { code: string; name: string; listeners: number | null; suppressed: boolean; distance: number | null }[];
+  regions: { code: string; name: string; listeners: number | null; suppressed: boolean; distance: number | null; shares: Share[] | null }[];
   dataset: { generatorVersion: string; seed: number; referenceDate: string } | null;
 };
-const COLORS = ['#c5e99b', '#bba1df', '#ecb0a5', '#e5c881', '#9fd3d0', '#d9a3c7'];
+// Fixed colour per genre (identity, not rank), validated for the dark surface; bars are also labelled.
+const GENRE_COLOR: Record<string, string> = { Electronic: '#3987e5', Ambient: '#d95926', Jazz: '#199e70', Indie: '#c98500', 'Hip-Hop': '#d55181', Classical: '#0ca30c' };
+// One-hue sequential ramp for the map (dark → light = low → high), five bins.
+const RAMP = ['#184f95', '#256abf', '#3987e5', '#6da7ec', '#b7d3f6'];
+type MapMode = 'listeners' | 'share' | 'similarity';
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 // Windows are half-open [start, end): the last included day is end − 1 day.
 const span = (window: { start: string; end: string }) => `${day(window.start)} – ${day(new Date(new Date(window.end).getTime() - 86_400_000).toISOString())} (UTC)`;
@@ -31,6 +36,8 @@ export function Pulse({ openTrack }: { openTrack?: (slug: string) => void }) {
   const [data, setData] = useState<PulseData | null>(null);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  const [mapMode, setMapMode] = useState<MapMode>('listeners');
+  const [mapGenre, setMapGenre] = useState('');
   useEffect(() => { api<{ regions: { code: string; name: string }[] }>('/pulse/regions').then(result => setRegions(result.regions)).catch(() => setRegions([])); }, []);
   useEffect(() => {
     let cancelled = false;
@@ -47,8 +54,46 @@ export function Pulse({ openTrack }: { openTrack?: (slug: string) => void }) {
   const peak = Math.max(1, ...daily.map(point => Math.max(point.listeners ?? 0, point.average7 ?? 0)));
   const x = (index: number) => 15 + (index * 540) / Math.max(1, daily.length - 1);
   const y = (value: number) => 190 - (value / peak) * 160;
+  // Map: only countries at or above the privacy threshold get a colour; the rest are grey.
+  const rows = new Map((data?.regions ?? []).map(row => [row.code, row]));
+  const visible = (data?.regions ?? []).filter(row => !row.suppressed);
+  const genreOptions = [...new Set(visible.flatMap(row => (row.shares ?? []).map(item => item.genre)))].sort();
+  const genreForMap = genreOptions.includes(mapGenre) ? mapGenre : genreOptions[0] ?? '';
+  const maxListeners = Math.max(1, ...visible.map(row => row.listeners ?? 0));
+  const shareOf = (code: string) => rows.get(code)?.shares?.find(item => item.genre === genreForMap)?.share ?? 0;
+  const binOf = (code: string): number | null => {
+    const row = rows.get(code);
+    if (!row || row.suppressed) return null;
+    if (mapMode === 'listeners') return Math.min(4, Math.floor((row.listeners! / maxListeners) * 5 - 1e-9));
+    if (mapMode === 'share') return Math.min(4, Math.floor(shareOf(code) * 10));
+    return row.distance === null ? null : Math.max(0, Math.min(4, Math.floor((1 - row.distance - 0.5) * 10)));
+  };
+  const mapFill = (code: string) => { const bin = binOf(code); return bin === null ? undefined : RAMP[bin]; };
+  const legend = mapMode === 'listeners' ? RAMP.map((_, i) => `${i ? Math.round(maxListeners * i / 5) + 1 : 1}–${Math.round(maxListeners * (i + 1) / 5)}`)
+    : mapMode === 'share' ? ['under 10%', '10–20%', '20–30%', '30–40%', '40% or more'] : ['under 0.6', '0.6–0.7', '0.7–0.8', '0.8–0.9', '0.9 or more'];
+  const similarityBase = data?.region?.name ?? 'all countries combined';
+  const describe = (code: string, name: string) => {
+    const row = rows.get(code);
+    if (!row || row.suppressed) return `${name}: hidden — fewer than ${threshold} listeners this week, or none`;
+    if (mapMode === 'share') return `${name}: ${genreForMap} ${percent(shareOf(code))} of listening · ${row.listeners} listeners`;
+    if (mapMode === 'similarity') return row.distance === null ? `${name}: no comparison available` : `${name}: similarity ${(1 - row.distance).toFixed(2)} to ${similarityBase} (distance ${row.distance.toFixed(2)})`;
+    return `${name}: ${row.listeners} listeners this week · top genre ${row.shares?.[0]?.genre ?? '—'}`;
+  };
   const averageLine = daily.map((point, index) => point.average7 === null ? null : `${x(index)},${y(point.average7)}`).filter(Boolean).join(' ');
 
+  const mapCaption = mapMode === 'listeners' ? 'Listeners this week, per country' : mapMode === 'share' ? `Share of ${genreForMap || 'a genre'} in each country’s listening this week` : `Similarity of each country’s genre mix to ${similarityBase}: 1 − total variation distance (1 = identical)`;
+  // A plain element (not a nested component), so the map keeps its zoom across re-renders.
+  const mapPanel = data ? <section className="panel map-panel">
+    <div className="section-title"><div><h2>Music around the world</h2><p>{mapCaption}</p></div>
+      <div className="segmented" role="group" aria-label="Map shows">{([['listeners', 'Listeners'], ['share', 'Genre share'], ['similarity', 'Similarity']] as const).map(([value, text]) => <button key={value} className={mapMode === value ? 'active' : ''} aria-pressed={mapMode === value} onClick={() => setMapMode(value)}>{text}</button>)}</div></div>
+    {mapMode === 'share' && genreOptions.length > 0 && <label className="map-genre">Genre <select value={genreForMap} onChange={event => setMapGenre(event.target.value)}>{genreOptions.map(genre => <option key={genre}>{genre}</option>)}</select></label>}
+    <WorldMap fill={mapFill} selected={region || null} onSelect={code => setRegion(current => current === code ? '' : code)} markers={visible.map(row => row.code)} describe={describe}
+      label={`World map of ${data.label.toLowerCase()} data: ${mapCaption}. ${visible.length} countries have at least ${threshold} listeners. Use the country list above to choose a country.`}/>
+    <div className="map-legend">{legend.map((text, index) => <span key={text}><i style={{ background: RAMP[index] }}/>{text}</span>)}<span><i style={{ background: HIDDEN_FILL }}/>hidden: under {threshold} listeners, or none</span></div>
+    {mapMode === 'similarity' && data.region && data.suppressed && <p className="muted small">{data.region.name} has fewer than {threshold} listeners, so nothing can be compared with it.</p>}
+    {!visible.length && <p className="muted small">No country has {threshold} or more listeners this week yet{data.origin === 'REAL' ? ', so the whole map stays grey. Share your country in Profile to contribute.' : '.'}</p>}
+    <p className="muted small">Click a country (or its dot) to filter the page; click it again to show all countries. Boundaries: Natural Earth (public domain); they imply no political position.</p>
+  </section> : null;
   return <>
     <div className="page-heading"><div><p className="eyebrow">THE SOUND OF RIGHT NOW</p><h1>Music Pulse<span>.</span></h1><p className="muted">How music moves through places and people.</p></div>
       <span className={`preview-tag ${origin === 'SYNTHETIC' ? '' : 'real-tag'}`}><Icon name="pulse" size={14}/> {origin === 'SYNTHETIC' ? 'Synthetic demonstration' : 'Our platform'}</span></div>
@@ -59,6 +104,7 @@ export function Pulse({ openTrack }: { openTrack?: (slug: string) => void }) {
     {error ? <div className="empty-state" role="alert"><Icon name="pulse" size={32}/><h3>Music Pulse didn’t load.</h3><p>{error}</p><button className="text-button" onClick={() => setAttempt(value => value + 1)}>Try again <Icon name="arrow" size={16}/></button></div>
     : !data ? <div className="empty-state" role="status"><Icon name="pulse" size={32}/><h3>Reading the pulse…</h3><p>Aggregating counted listens.</p></div>
     : <>
+      {mapPanel}
       <p className="muted small pulse-window">{data.label} · this week {span(data.windows.current)} vs. previous week {span(data.windows.previous)}{data.dataset ? ` · dataset ${data.dataset.generatorVersion}, seed ${data.dataset.seed}` : ''}{data.origin === 'REAL' ? ' · complete days only, so today’s listens appear tomorrow' : ''}</p>
       {data.suppressed ? <div className="empty-state" role="status"><Icon name="users" size={32}/><h3>Not enough listeners in {place} yet.</h3><p>To protect privacy, Music Pulse shows nothing about a group until at least {threshold} different people have counted listens there in the week{data.origin === 'REAL' ? ' — and only people who chose to share their country count towards a region' : ''}.</p></div> : <>
         <div className="stat-grid">
@@ -75,7 +121,7 @@ export function Pulse({ openTrack }: { openTrack?: (slug: string) => void }) {
             <div className="chart-axis">{daily.length ? [daily[0]!, daily[Math.floor(daily.length / 2)]!, daily[daily.length - 1]!].map(point => <span key={point.day}>{day(point.day)}</span>) : null}</div>
             {daily.some(point => point.listeners === null) && <p className="muted small">Days with fewer than {threshold} listeners are not shown.</p>}</article>
           <article className="panel"><h2>A taste of {place}</h2><p className="muted">Genre shares of this week’s listening (at most {data.rules.dailyCap} listens per person, track and day)</p>
-            <div className="genre-bars">{data.genres!.shares.map((item, index) => <div key={item.genre}><div><span>{item.genre}</span><strong>{percent(item.share)}</strong></div><div className="bar-track"><i style={{ width: `${item.share * 100}%`, background: COLORS[index % COLORS.length] }}/></div></div>)}</div>
+            <div className="genre-bars">{data.genres!.shares.map((item, index) => <div key={item.genre}><div><span>{item.genre}</span><strong>{percent(item.share)}</strong></div><div className="bar-track"><i style={{ width: `${item.share * 100}%`, background: GENRE_COLOR[item.genre] ?? '#9085e9' }}/></div></div>)}</div>
             {data.genres!.uncategorized > 0 && <p className="muted small">{data.genres!.uncategorized} listens of tracks without a genre are excluded.</p>}</article>
         </div>
         <section className="panel pulse-section"><div className="section-title"><div><h2>Trending now</h2><p>trend = 100 · U1/(U1+50) · Σ weight × percentile(signal) · tracks with at least {data.rules.minimumTrendListeners} listeners this week</p></div></div>
@@ -88,7 +134,7 @@ export function Pulse({ openTrack }: { openTrack?: (slug: string) => void }) {
           <section className="panel"><h2>Most listened</h2><p className="muted">Unique listeners this week · current popularity, not momentum</p>
             {data.popular.length ? <ol className="pulse-list">{data.popular.map(row => <li key={row.track.id}><span>{row.track.title}<small>{row.track.artist}</small></span><strong>{row.listeners.toLocaleString()}</strong></li>)}</ol> : <p className="muted small">No track has {threshold} or more listeners yet.</p>}</section>
           <section className="panel"><h2>Regions compared</h2><p className="muted">{data.comparisonBase} · total variation distance, 0 = same genre mix, 1 = completely different</p>
-            <ol className="pulse-list">{data.regions.map(item => <li key={item.code}><span>{item.name}<small>{item.suppressed ? `fewer than ${threshold} listeners — hidden` : `${item.listeners!.toLocaleString()} listeners`}</small></span><strong>{item.distance === null ? '—' : item.distance.toFixed(2)}</strong></li>)}</ol></section>
+            <ol className="pulse-list">{[...visible].sort((x, y) => (y.listeners ?? 0) - (x.listeners ?? 0)).map(item => <li key={item.code}><span><button className="link-button" onClick={() => setRegion(item.code)}>{item.name}</button><small>{item.listeners!.toLocaleString()} listeners</small></span><strong>{item.distance === null ? '—' : item.distance.toFixed(2)}</strong></li>)}</ol><p className="muted small">{data.regions.length - visible.length} other countries hidden (fewer than {threshold} listeners this week, or none).</p></section>
         </div>
       </>}
       <div className="info-strip"><Icon name="pulse"/><p>{data.origin === 'SYNTHETIC'

@@ -9,7 +9,8 @@ import { sessionService, tokenDigest } from '../dist/modules/auth/sessions.js';
 import { pulseService } from '../dist/modules/analytics/service.js';
 import { locationService } from '../dist/modules/location/service.js';
 import { replaceSyntheticDataset, seedRegions } from '../dist/modules/analytics/persist.js';
-import { DEFAULT_CONFIG, generateSynthetic } from '../dist/modules/analytics/synthetic.js';
+import { DEFAULT_CONFIG, GENERATOR_VERSION, generateSynthetic } from '../dist/modules/analytics/synthetic.js';
+import { COUNTRIES } from '../dist/modules/analytics/countries.js';
 import { computePulse } from '../dist/modules/analytics/pulse.js';
 import { pulseInputFrom } from '../dist/modules/analytics/evaluate.js';
 import { seedDemoCatalog } from '../dist/modules/catalog/seed.js';
@@ -21,6 +22,7 @@ test('live pulse: synthetic dataset round trip, real/synthetic isolation, consen
   let fixtureId;
   try {
     await seedDemoCatalog(db); await seedRegions(db);
+    assert.equal(await db.region.count({ where: { code: { in: COUNTRIES.map(country => country.code) } } }), COUNTRIES.length, 'every map country is a region');
     const realCounts = async () => ({ users: await db.user.count({ where: { dataOrigin: 'REAL' } }), tracks: await db.track.count({ where: { dataOrigin: 'REAL' } }), events: await db.listeningEvent.count({ where: { dataOrigin: 'REAL' } }), likes: await db.like.count({ where: { user: { dataOrigin: 'REAL' } } }) });
     const before = await realCounts();
     const data = generateSynthetic(DEFAULT_CONFIG);
@@ -29,8 +31,10 @@ test('live pulse: synthetic dataset round trip, real/synthetic isolation, consen
     assert.deepEqual(await realCounts(), before, 'real data untouched');
     assert.equal(await db.listeningEvent.count({ where: { dataOrigin: 'SYNTHETIC' } }), data.events.length);
     assert.equal(await db.syntheticDataset.count(), 1);
+    assert.equal(await db.artist.count({ where: { name: 'Synthetic Studio (demonstration data)' } }), 1, 'no orphaned generator artists');
+    assert.equal(await db.user.count({ where: { email: { endsWith: '@synthetic.invalid' }, region: { code: 'IS' } } }), 8, 'Iceland stays below the threshold');
     const dataset = await db.syntheticDataset.findFirstOrThrow();
-    assert.deepEqual([dataset.seed, dataset.generatorVersion, dataset.referenceDate.getTime()], [DEFAULT_CONFIG.seed, 'synthetic-v1', DEFAULT_CONFIG.referenceDate]);
+    assert.deepEqual([dataset.seed, dataset.generatorVersion, dataset.referenceDate.getTime()], [DEFAULT_CONFIG.seed, GENERATOR_VERSION, DEFAULT_CONFIG.referenceDate]);
     // Synthetic accounts cannot sign in; synthetic tracks never appear in the public catalog.
     const sessions = sessionService(db);
     assert.equal(await sessions.login({ email: data.users[0].email, password: 'any password at all, long enough' }), null);
@@ -41,7 +45,8 @@ test('live pulse: synthetic dataset round trip, real/synthetic isolation, consen
     // Database round trip: the API's synthetic numbers equal the in-memory computation for the same seed.
     for (const region of [null, 'DE']) {
       const served = (await request(app).get(`/api/pulse?origin=SYNTHETIC${region ? `&region=${region}` : ''}`).expect(200)).body.pulse;
-      const expected = computePulse(pulseInputFrom(data, DEFAULT_CONFIG.referenceDate, region));
+      // Same region list as the database: every country on the map.
+      const expected = computePulse({ ...pulseInputFrom(data, DEFAULT_CONFIG.referenceDate, region), regions: COUNTRIES.map(country => ({ id: country.code, code: country.code, name: country.name })) });
       assert.equal(served.label, 'Synthetic demonstration');
       assert.deepEqual(served.summary, expected.summary);
       assert.deepEqual(served.trending.map(row => [row.track.slug, row.U0, row.U1, Number(row.score.toFixed(9))]), expected.trending.map(row => [row.track.slug, row.U0, row.U1, Number(row.score.toFixed(9))]));
