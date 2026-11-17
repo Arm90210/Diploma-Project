@@ -1,6 +1,6 @@
 # Mathematical plan and evaluation
 
-These are proposed models, not implemented algorithms or measured results, except section 0, which is implemented (2026-11-17). Keep the first versions small enough to derive and explain at the defense. Store parameters with each evaluation run.
+Sections 0, 2 and 3 are implemented (2026-11-17): code in `apps/api/src/modules/listening/policy.ts` and `apps/api/src/modules/analytics/` (`math.ts` formulas, `pulse.ts` aggregation, `synthetic.ts` generator, `evaluate.ts` evaluation), results in [EVALUATION-PULSE.md](EVALUATION-PULSE.md). Section 1 (recommendations) is still a proposal. Implementation choices beyond the text below: percentile rank = (average rank − 1)/(n − 1); the trend window closes at the UTC midnight at or before the reference time; per-day and previous-week counts below 10 listeners are hidden too; the playlist-add signal is omitted (no timestamped add events) and the remaining weights are renormalized. Keep the first versions small enough to derive and explain at the defense. Store parameters with each evaluation run.
 
 ## 0. Qualified listens — the input data (policy `listen-v1`, implemented)
 

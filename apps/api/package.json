@@ -12,7 +12,9 @@
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx src/seed.ts",
-    "test:db": "npm run build && node --test test/*.integration.mjs"
+    "db:synthetic": "tsx src/synthetic.ts",
+    "pulse:evaluate": "tsx src/evaluate-pulse.ts",
+    "test:db": "npm run build && node --test --test-concurrency=1 test/*.integration.mjs"
   },
   "dependencies": {
     "@prisma/client": "7.10.1",

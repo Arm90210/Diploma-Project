@@ -197,3 +197,45 @@ Not covered: the library loading/error states and a failed import were not exerc
 | Browser journey before commit | Signed-in play ≥ 15 s appears in Recently played; track page shows 1 counted listen; immediate replay stays at 1 |
 
 Not covered: heartbeat behaviour in a background tab and the "< 10 listeners" display with 10 or more real listeners were not exercised in a browser; the browser tracker (`useListening`) has no automated test.
+
+## 2026-11-17 — Music Pulse: regional distributions, trends and evaluation
+
+### Implemented
+
+- Pure formulas (`analytics/math.ts`): complete adjacent UTC weeks, per-user/track/day cap of 3, fractional genre distribution with uncategorized count, total variation distance, tie-averaged percentile ranks, trend score with eligibility (U1 ≥ 20), smoothing, shrinkage, new-entry handling and renormalized weights (playlist signal omitted), 7-day moving average.
+- `computePulse`: one origin per call; suppression before ranking (whole cohort < 10 → no numbers; per-day, previous-week, popularity and region rows < 10 hidden individually); region comparison by TV distance.
+- Deterministic generator `synthetic-v1` (seed 20261117, reference 2026-11-16, 600 users in 5 regions, 36 tracks, 8 weeks; planted breakouts, steady hits, one-day spike, tiny-denominator track, weekend seasonality, known regional preferences) and in-memory evaluation → docs/EVALUATION-PULSE.md.
+- Migration `202611170004_pulse` (`SyntheticDataset` provenance). `npm run db:synthetic` writes the dataset in one transaction, replacing only its own rows. Regions (AM, DE, US, FR, JP) seeded by `npm run db:seed`.
+- `/api/pulse` (public aggregates) and `/api/location` (choose with explicit consent, withdraw → past event regions cleared). Contract in ARCHITECTURE.md.
+- Music Pulse page rewired to the API (same design): Synthetic demonstration / Our platform switch, region filter, honest suppression message, daily chart, genre shares, trending table with components and formula, popularity list, region distances. Profile: country sharing with consent and withdrawal; outdated "stays in this browser" text corrected.
+- Live tests now run one file at a time (`--test-concurrency=1`) because the Pulse test regenerates the synthetic dataset.
+
+### Evaluation results (synthetic, in memory; full tables in EVALUATION-PULSE.md)
+
+Trend score precision@3 = 1.00 against the planted breakouts, versus 0.67 for raw growth (which ranks the one-day spike first) and 0.33 for current popularity; the spike reaches rank 4 and is never in the top 3 on any of the last 15 days; the tiny-denominator track is never eligible; precision@3 stays 1.00 across growth weights 0.40–0.70 and thresholds 10–40; detection by the window ending 2026-11-08 (2 of 3 breakouts in the top 3). Regional estimates are within TV 0.03–0.08 of the planted preferences. Estimated between-region distances (mean 0.244) are smaller than planted (0.300); regenerating without replays and excluding the spike gives 0.299, showing the estimator is sound and the gap comes from simulated behaviour (demand ≠ preference).
+
+### Checked in the cloud workspace
+
+| Check | Result |
+| --- | --- |
+| All six migrations on a fresh PostgreSQL 16; reference-date midnight CHECK | Passed |
+| Pulse formula tests (windows, cap, distribution, TV, percentiles, hand-worked trend score, playlist renormalization, moving average) | 8/8 passed |
+| Generator determinism, planted structure, suppression, region filtering, evaluation assertions | 5/5 passed |
+| All other pure tests (listening policy, catalog/library contracts) | 24/24 passed |
+| `npm run pulse:evaluate` equivalent (writes EVALUATION-PULSE.md) | Ran in 1.6 s |
+
+### Verified on the development machine
+
+The first local run found one error in the new live test itself (it called `login` with positional arguments instead of `{ email, password }`); fixed. Then:
+
+| Check | Result |
+| --- | --- |
+| `npm run db:generate`, `npm run db:migrate` | `202611170004_pulse` applied |
+| `npm run db:seed` | Demo catalog and regions ready |
+| `npm run db:synthetic` | synthetic-v1, seed 20261117: 600 users, 36 tracks, 34 712 events, 2 208 likes |
+| `npm run typecheck`, `npm run build` | Passed |
+| `npm test` | 75 API tests and 5 frontend tests passed |
+| `npm run test:db -w apps/api` | 6/6 passed, including `pulse.integration.mjs`: API numbers from PostgreSQL equal the in-memory computation for the same seed (all regions and Germany), real data untouched, synthetic accounts cannot sign in, consent choose/move/withdraw clears past event regions, region-without-consent rejected by the database |
+| Browser check before commit | Music Pulse synthetic view (breakouts lead trending, regions change the genre mix), Our platform shows the suppression message, Profile country sharing and withdrawal |
+
+Not covered: mobile layout of the new Pulse table was not inspected; Pulse performance was not measured beyond the demonstration volume.

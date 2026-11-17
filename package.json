@@ -16,7 +16,9 @@
     "db:generate": "npm run db:generate -w apps/api",
     "db:validate": "npm run db:validate -w apps/api",
     "db:migrate": "npm run db:migrate -w apps/api",
-    "db:seed": "npm run db:seed -w apps/api"
+    "db:seed": "npm run db:seed -w apps/api",
+    "db:synthetic": "npm run db:synthetic -w apps/api",
+    "pulse:evaluate": "npm run pulse:evaluate -w apps/api"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

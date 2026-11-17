@@ -204,3 +204,15 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
 }
+
+// Provenance of a generated synthetic demonstration dataset (seed, version, reference date, planted truth).
+model SyntheticDataset {
+  id               String   @id @default(uuid()) @db.Uuid
+  generatorVersion String   @db.VarChar(40)
+  seed             Int
+  referenceDate    DateTime @db.Timestamptz(3)
+  parameters       Json
+  truth            Json
+  counts           Json
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+}

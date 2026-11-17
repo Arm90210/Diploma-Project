@@ -124,6 +124,18 @@ Formal definition of crediting and qualification: MATHEMATICS.md section 0. Part
 
 Identity, time, origin and region are always server-derived. The region snapshot is the user's region, which by the existing CHECK can only be set with location consent; there is no region-selection UI yet (Music Pulse step), so it is currently null. The browser reports only for signed-in users and catalog tracks; guests and local files are never recorded. A session starts on actual playback, not on selection. Source is `SEARCH` while searching, `PLAYLIST` from Your library, otherwise `CATALOG`.
 
+## Music Pulse and location (implemented 2026-11-17)
+
+| Request | Notes |
+| --- | --- |
+| `GET /api/pulse?origin=REAL\|SYNTHETIC&region=XX` | Public aggregates for one origin (never blended). REAL closes at today's UTC midnight (complete days); SYNTHETIC closes at the stored dataset's fixed reference date. Returns windows, rules, summary, capped genre shares, daily unique listeners with 7-day moving average, trend rows with every component, popularity list, and per-region comparison by total variation distance. A cohort under 10 distinct listeners returns no numbers at all (`suppressed`); per-day values, previous-week counts, popularity entries and region rows under 10 are hidden individually. 404 when no synthetic dataset exists. |
+| `GET /api/pulse/regions` | Country-level regions (reference data from `npm run db:seed`). |
+| `GET` / `PUT` / `DELETE /api/location` | Session required; PUT/DELETE need a trusted origin. PUT `{ code, consent: true }` sets the region and consent time; moving keeps earlier events' snapshots. DELETE clears region and consent and removes the region from all of the user's past events in one transaction. |
+
+Computation loads 34 days of one origin's events and runs the pure `computePulse`. This is adequate for the demonstration volumes (≈35 000 synthetic events); larger data would need SQL aggregation or materialized daily tables (Phase 7). The synthetic dataset (`npm run db:synthetic`) is deterministic (generator `synthetic-v1`, seed 20261117, reference date 2026-11-16, 600 users in 5 regions, 36 tracks, 8 weeks); its parameters and planted truth are stored in `SyntheticDataset`. Regenerating replaces only the generator's own rows (accounts ending `@synthetic.invalid`, tracks `syn-track-*`); synthetic accounts cannot sign in and synthetic tracks never appear in the catalog.
+
+Known privacy limitation: with "All regions" selected, global numbers minus visible regions can narrow down hidden regions plus people without a region. Filters are restricted (origin and one region) and windows are fixed to reduce differencing, but this is not formal anonymity.
+
 ## Community extension
 
 See [Communities and social discovery](COMMUNITIES.md) for the planned social entities, membership history, community preference vectors, normalized matching score, chronological evaluation and Community Pulse privacy rules. These extend the existing models and arrive in later migrations and feature phases.

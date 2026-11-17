@@ -4,7 +4,7 @@ Bachelor's diploma in Applied Mathematics.
 
 **Official title:** «Երաժշտական նախասիրությունների և պահանջարկի դինամիկայի վերլուծության համակարգի մշակում»
 
-MusicSphere is the working product name: music streaming and social discovery through people and communities. Implemented so far: the foundation, database-backed accounts and sessions (register, log in, sign out, edit display name), a responsive MusicSphere interface with a working audio player, a **database-backed music catalog** served by `/api/catalog` (seeded with eight original demo studies), **account-backed likes and playlists** (`/api/library`; guests keep a browser-only library), and **track pages with qualified listening history** (`/api/listening`, policy `listen-v1`). Still preview-only (browser-local or illustrative): community membership and posts, Music Pulse charts. Not yet implemented: uploads, listening-event collection, friends, recommendations and real analytics. See [PROGRESS.md](docs/PROGRESS.md) for exactly what is verified.
+MusicSphere is the working product name: music streaming and social discovery through people and communities. Implemented so far: the foundation, database-backed accounts and sessions (register, log in, sign out, edit display name), a responsive MusicSphere interface with a working audio player, a **database-backed music catalog** served by `/api/catalog` (seeded with eight original demo studies), **account-backed likes and playlists** (`/api/library`; guests keep a browser-only library), **track pages with qualified listening history** (`/api/listening`, policy `listen-v1`), and **Music Pulse** (`/api/pulse`): regional genre distributions, total-variation comparisons and the explainable trend score over real data (with privacy suppression) or a clearly labelled deterministic synthetic demonstration (`npm run db:synthetic`), evaluated in [EVALUATION-PULSE.md](docs/EVALUATION-PULSE.md). Still preview-only (browser-local or illustrative): community membership and posts. Not yet implemented: uploads, listening-event collection, friends, recommendations and real analytics. See [PROGRESS.md](docs/PROGRESS.md) for exactly what is verified.
 
 ## Start locally
 
@@ -28,6 +28,7 @@ docker compose up -d --wait db
 npm run db:generate
 npm run db:migrate
 npm run db:seed     # original demo catalog; safe to repeat
+npm run db:synthetic # synthetic demonstration data for Music Pulse; safe to repeat
 npm run dev
 ```
 
@@ -47,7 +48,9 @@ The frontend and health endpoint work without PostgreSQL; the database card will
 | `npm run db:validate` | Validate Prisma schema (requires `.env`, not a live database) |
 | `npm run db:generate` | Generate typed Prisma client after schema edits |
 | `npm run db:migrate` | Apply committed migrations to PostgreSQL |
-| `npm run db:seed` | Insert or update the eight original demo tracks (matched by slug; never deletes other data) |
+| `npm run db:seed` | Insert or update the eight original demo tracks and the country list (matched by slug/code; never deletes other data) |
+| `npm run db:synthetic` | Generate the deterministic synthetic demonstration dataset (replaces only the generator's own SYNTHETIC rows) |
+| `npm run pulse:evaluate` | Re-run the Music Pulse evaluation in memory and rewrite docs/EVALUATION-PULSE.md |
 | `npm exec -w apps/api -- prisma migrate dev --name descriptive_name` | Create a migration after changing the schema, with a local database running |
 | `docker compose stop` | Stop database, preserve stored data |
 
@@ -71,6 +74,8 @@ apps/
     src/modules/catalog/   Catalog API, validation, demo seed data
     src/modules/library/   Signed-in likes/playlists API and browser-library import
     src/modules/listening/ Playback sessions, heartbeats, qualification policy, history
+    src/modules/analytics/ Music Pulse formulas, aggregation, synthetic generator, evaluation
+    src/modules/location/  Optional country choice with consent and withdrawal
     src/seed.ts            `npm run db:seed` entry point
     prisma/schema.prisma   Relational data model
     prisma/migrations/     Versioned SQL, including database constraints
@@ -85,7 +90,7 @@ We use one repository and one database, without microservices, Redis, or a separ
 
 ## Project documents
 
-Start with the [step-by-step build checklist](docs/STEPS.md). Phase 1 is verified locally; accounts and the interface milestone followed. Catalog, account library, track pages and qualified listening history are done; next are real communities.
+Start with the [step-by-step build checklist](docs/STEPS.md). Phase 1 is verified locally; accounts and the interface milestone followed. Catalog, account library, track pages, qualified listening history and Music Pulse are done; next are real communities and recommendations.
 
 - [Communities, friends, discovery and Community Pulse](docs/COMMUNITIES.md)
 - [Authentication API and session contract](docs/AUTHENTICATION.md)

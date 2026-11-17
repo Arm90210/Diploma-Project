@@ -32,3 +32,24 @@
 .track-stats{margin-bottom:6px}
 .track-stats .stat-card>strong{font-size:28px}
 @media(max-width:760px){.track-detail{grid-template-columns:1fr}.track-detail>img{max-width:220px}.track-stats{grid-template-columns:1fr}}
+
+/* Music Pulse tables and lists */
+.pulse-window{margin:-10px 0 18px}
+.pulse-section{margin-top:22px}
+.pulse-section .section-title{margin:0 0 14px}
+.pulse-table{display:flex;flex-direction:column}
+.pulse-row{display:grid;grid-template-columns:26px minmax(0,1.8fr) 90px 80px 70px 70px 60px;gap:10px;align-items:center;padding:11px 4px;border-bottom:1px solid #2b2631;font-size:12px;color:#d8c7e5}
+.pulse-row.head{font-size:9px;letter-spacing:1px;color:#8f8799;text-transform:uppercase;padding-top:4px}
+.pulse-row small,.pulse-list small{display:block;font-size:10px;color:#8f8799;margin-top:3px}
+.pulse-row strong{color:var(--lime)}
+.pulse-list{list-style:none;margin-top:16px;display:flex;flex-direction:column}
+.pulse-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #2b2631;font-size:12px;color:#d8c7e5}
+.pulse-list strong{font-size:13px;color:var(--lime);font-weight:600}
+.link-button{color:inherit;text-align:left;text-decoration:underline;text-decoration-color:#5a4a66;text-underline-offset:3px}
+.link-button:hover{color:var(--lime)}
+.preview-tag.real-tag{color:var(--lime);border-color:#4b5a34}
+.region-choice{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.region-choice select{background:#211b27;border:1px solid #45354f;border-radius:6px;color:#e6e2e8;padding:10px;font-size:12px}
+.region-choice .consent{display:flex;gap:10px;align-items:flex-start;font-size:11px;color:#c1acd1;line-height:1.6}
+@media(max-width:760px){.pulse-row{grid-template-columns:22px minmax(0,1fr) 70px 52px;font-size:11px}.pulse-row>:nth-child(4),.pulse-row>:nth-child(5),.pulse-row>:nth-child(6){display:none}.pulse-filters{flex-direction:column;align-items:stretch;gap:12px}}
+.region-panel{margin-top:23px}
