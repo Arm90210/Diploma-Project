@@ -168,3 +168,32 @@ The first local run found one TypeScript error (Express 5 types route parameters
 | Browser journey before commit | Sign in → like → create playlist → add track → reload → content remains; sign out shows the separate guest library |
 
 Not covered: the library loading/error states and a failed import were not exercised in a browser; the 200-playlist and 500-track limits are tested only at the API layer.
+
+## 2026-11-17 — Track pages and qualified listening history
+
+### Implemented
+
+- Listening policy `listen-v1` as pure, unit-tested functions (formal definition in MATHEMATICS.md section 0): credit only for real-time-bounded media progress while playing; pauses, seeks and faster-than-real-time claims earn nothing; unique timeline coverage for completion; qualification at min(30 s, 50%); 30-minute per-user/track cooldown; sequence-based retry safety.
+- Migration `202611170003_listening`: `PlaybackSession` table (partial progress, CHECKs, cascades), `ListeningEvent.policyVersion`, index for cooldown/history lookups.
+- `/api/listening`: start session, heartbeats, end, personal history, public per-track stats with the 10-listener threshold (contract in ARCHITECTURE.md). Row locks make retries and parallel heartbeats safe; user-level lock prevents two sessions from both passing the cooldown.
+- Frontend: `useListening` reports playback for signed-in users (never guests or local files); track detail page at `#track/<slug>` (play, like, add, your counted listens, audience numbers or "< 10", plain-language counting rules); Your library → Recently played; playlists now display in their saved order (previously catalog order).
+
+### Checked in the cloud workspace
+
+| Check | Result |
+| --- | --- |
+| All five migrations on a fresh PostgreSQL 16; new table, CHECKs, FKs and indexes present | Passed |
+| Listening policy tests (threshold, continuous play, pause, seek forward/back, seek to end, faster-than-real-time, jitter tolerance, delayed-heartbeat cap, retries, clamping, interval merging, cooldown boundary, request validation) | 14/14 passed |
+| All other pure tests (catalog, library contracts) | 10/10 passed |
+
+### Verified on the development machine (first run, no fixes needed)
+
+| Check | Result |
+| --- | --- |
+| `npm run db:generate`, `npm run db:migrate` | `202611170003_listening` applied |
+| `npm run typecheck`, `npm run build` | Passed |
+| `npm test` | 59 API tests and 5 frontend tests passed |
+| `npm run test:db -w apps/api` | 5/5 passed, including `listening.integration.mjs` (qualification at 12 s, retry, event fields and policy version, end idempotency, isolation, cooldown not-counted then counted after 31 min, pause, seek to end, five parallel identical heartbeats credited once, synthetic-account refusal, history, stats threshold) |
+| Browser journey before commit | Signed-in play ≥ 15 s appears in Recently played; track page shows 1 counted listen; immediate replay stays at 1 |
+
+Not covered: heartbeat behaviour in a background tab and the "< 10 listeners" display with 10 or more real listeners were not exercised in a browser; the browser tracker (`useListening`) has no automated test.

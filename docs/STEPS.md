@@ -25,7 +25,7 @@ Done when: register, log in, reload while signed in, edit your own profile and l
 ## Phase 2b — Uploads, catalog and playback
 
 - [ ] 2b.1 Validate permitted audio/cover uploads and store metadata plus rights declaration.
-- [ ] 2b.2 Build bounded catalog/search endpoints and track pages. Endpoints, seeded demo catalog and frontend loading done 2026-11-17; track pages pending.
+- [x] 2b.2 Build bounded catalog/search endpoints and track pages. (2026-11-17.)
 - [ ] 2b.3 Serve audio with byte-range support and access checks.
 - [ ] 2b.4 Build play/pause, seek, skip and queue controls.
 - [ ] 2b.5 Test with authorized audio, invalid uploads, seek requests and failed-upload cleanup.
@@ -53,9 +53,9 @@ Done when: two accounts can connect, join a community and discuss music with wor
 
 ## Phase 4 — Reliable listening data
 
-- [ ] 4.1 Define and persist server-issued playback sessions and sequenced heartbeats.
-- [ ] 4.2 Implement qualification, pause/seek handling, replay limits and duplicate prevention.
-- [ ] 4.3 Add consent controls, listening history and personal genre/artist statistics.
+- [x] 4.1 Define and persist server-issued playback sessions and sequenced heartbeats. (2026-11-17.)
+- [x] 4.2 Implement qualification, pause/seek handling, replay limits and duplicate prevention. (Policy listen-v1, 2026-11-17.)
+- [ ] 4.3 Add consent controls, listening history and personal genre/artist statistics. Listening history done 2026-11-17; region consent controls and personal statistics pending.
 - [ ] 4.4 Build deterministic synthetic data with a fixed seed/date, including social and membership histories.
 - [ ] 4.5 Test time boundaries, retries, consent withdrawal and real/synthetic isolation.
 

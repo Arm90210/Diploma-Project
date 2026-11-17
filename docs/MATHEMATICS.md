@@ -1,6 +1,20 @@
 # Mathematical plan and evaluation
 
-These are proposed models, not implemented algorithms or measured results. Keep the first versions small enough to derive and explain at the defense. Store parameters with each evaluation run.
+These are proposed models, not implemented algorithms or measured results, except section 0, which is implemented (2026-11-17). Keep the first versions small enough to derive and explain at the defense. Store parameters with each evaluation run.
+
+## 0. Qualified listens — the input data (policy `listen-v1`, implemented)
+
+All later models consume *counted listening events*. Their definition (code: `apps/api/src/modules/listening/policy.ts`, unit-tested):
+
+A playback session receives heartbeats `(s_i, p_i, π_i)` (sequence, media position in ms, playing flag) at server times `τ_i`. Heartbeats with `s_i ≤ s_{i-1}` are ignored (retries). For consecutive accepted heartbeats, with wall time `Δτ = τ_i − τ_{i−1}` and media advance `Δp = p_i − p_{i−1}`, the credited time is
+
+`c_i = min(Δp, C)` if `π_{i−1}` is true and `0 ≤ Δp ≤ Δτ + ε`, otherwise `c_i = 0`,
+
+with tolerance `ε = 2 s` and per-interval cap `C = 60 s`. Paused intervals (`π_{i−1}` false), backward or forward seeks, and claims of faster-than-real-time progress therefore earn nothing. Accepted listening time is `A = Σ c_i`. Each credited interval `[p_{i−1}, p_{i−1}+c_i)` is merged into a set `I` of disjoint timeline intervals; completion is `|I| / D` for track duration `D` (unique coverage, so seeking to the end is not completion, and repeats do not raise it).
+
+A session *qualifies* when `A ≥ min(30 s, D/2)`. A qualified session creates one event (unique per session) only if the same user has no counted event for the same track in the previous 30 minutes; the event time is the server qualification time. Events store `listenedMs = A`, completion, source, data origin and the policy version.
+
+Limitations to state at the defense: the server cannot verify that the client really played audio (a modified client can report plausible positions), so the rules bound inflation by real time, sequence and cooldown rather than proving authenticity. Up to one heartbeat interval (≈10 s) is not credited when a track is switched mid-play.
 
 ## 1. Genre preferences and cosine recommendations
 

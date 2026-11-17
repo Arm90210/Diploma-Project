@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { toCatalogTrack, type CatalogTrack, type GenreSummary, type TrackPage, type TrackQuery } from './contract.js';
 
-const trackSelect = {
+export const trackSelect = {
   id: true, slug: true, title: true, durationMs: true, audioKey: true, coverKey: true,
   artist: { select: { id: true, name: true } },
   genres: { select: { genre: { select: { name: true } } }, orderBy: { genre: { name: 'asc' } } },

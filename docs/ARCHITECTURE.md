@@ -31,7 +31,7 @@ Deleting a user cascades playlists, likes, and events. Tracks restrict uploader 
 
 Future tables arrive through migrations: sessions in Phase 2; `UserFollow(followerId, followingId)` with no self-follow; `Comment` with owner/moderation fields; `Review` with unique user/track and rating CHECK 1–5; `Album`/track ordering; and timestamped playlist-addition events for historical trends. Current playlist membership alone cannot reconstruct additions in a past window.
 
-## Event validity and duplicates (planned contract)
+## Event validity and duplicates (implemented as policy `listen-v1`, 2026-11-17)
 
 1. Authenticated server starts a playback session tied to one user and track; it issues the UUID. Client-supplied random UUIDs are not trusted sessions.
 2. Periodic sequenced heartbeats report playback progress. Server bounds elapsed listening by wall-clock time and playback state; paused time and seeking do not create listening time. Track unique media timeline intervals for completion; a seek to the end is not completion.
@@ -109,6 +109,20 @@ All routes require a valid session. The owner is always the session user; IDs in
 Concurrency: adding a track locks the playlist row (`FOR NO KEY UPDATE`) before computing the next position, so parallel additions never collide on the unique `(playlistId, position)` key. Positions only define order; removal leaves gaps rather than renumbering (renumbering under a non-deferrable unique key can conflict mid-update). Creating a playlist locks the owner row so the 200-playlist limit cannot be exceeded by parallel requests. The database also rejects blank titles (`Playlist_title_not_blank`).
 
 Guests and import: guests keep likes and playlists in `localStorage` (per account ID or `guest`). After sign-in, the browser collection stored for *that account* is sent once to `/import` in one transaction (all or nothing). Legacy IDs and removed tracks are skipped and counted; likes are de-duplicated; a playlist whose title already exists is merged rather than duplicated, so a retry after a lost response is harmless. The browser copy is cleared only after the server confirms. The guest collection is not imported automatically into whichever account signs in next, because on a shared computer it may belong to someone else; it remains available when signed out. Joined communities remain browser-local until the communities step.
+
+## Listening HTTP contract (implemented 2026-11-17)
+
+Formal definition of crediting and qualification: MATHEMATICS.md section 0. Partial progress is stored in `PlaybackSession` (sequence, last position/state/time, accepted milliseconds, merged coverage intervals as JSON); only counted listens become `ListeningEvent` rows (unique `playbackSessionId`, `policyVersion`).
+
+| Request | Notes |
+| --- | --- |
+| `POST /api/listening/sessions` `{ trackId, source }` | Session + origin + JSON. Track must be REAL and the user's origin must equal the track's (409 otherwise). At most 30 sessions per user per minute (429). Returns `{ session }` with `heartbeatIntervalMs` and `qualifyAfterMs`. |
+| `POST /api/listening/sessions/:id/heartbeats` `{ sequence, positionMs, playing }` | Exactly these keys. Locks the session row, applies the policy, qualifies/counts in the same transaction. Older or repeated sequences are ignored. Someone else's session: 404. Ended or older than 6 h: 409. |
+| `POST /api/listening/sessions/:id/end` `{}` or a final heartbeat | Idempotent. |
+| `GET /api/listening/history?limit=1..50` | Signed in; the caller's counted listens, most recent first, with `total`. |
+| `GET /api/listening/tracks/:trackId/stats` | Public. REAL counted listens and distinct listeners, all time, shown only when there are at least 10 distinct listeners (otherwise `null`); `yourListens` only for a valid session cookie. |
+
+Identity, time, origin and region are always server-derived. The region snapshot is the user's region, which by the existing CHECK can only be set with location consent; there is no region-selection UI yet (Music Pulse step), so it is currently null. The browser reports only for signed-in users and catalog tracks; guests and local files are never recorded. A session starts on actual playback, not on selection. Source is `SEARCH` while searching, `PLAYLIST` from Your library, otherwise `CATALOG`.
 
 ## Community extension
 
