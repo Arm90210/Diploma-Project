@@ -137,3 +137,34 @@ Not covered: the loading/error/empty states were implemented but not exercised i
 ### Next
 
 Account-backed likes and playlists (step 2 of the agreed order), including server-side import of these browser-local collections after sign-in.
+
+## 2026-11-17 — Account-backed likes and playlists
+
+### Implemented
+
+- `/api/library` (contract in ARCHITECTURE.md): read library; like/unlike; create/delete playlists; add/remove playlist tracks; one-time import of a browser collection. Session required on every route; ownership from the session only; other users' playlists return 404; exact-origin checks and JSON-only bodies on mutations; strict UUID/title/size validation; limits of 200 playlists and 500 tracks per playlist; row locks for safe concurrent additions.
+- Migration `202611170002_library`: `Playlist_title_not_blank` CHECK. Likes/playlists tables were already in the initial schema.
+- Frontend `useLibrary`: guests keep the browser-only library; signed-in users load from the API with loading and error-with-retry states, optimistic updates that re-sync from the server on failure, wording that says where music is saved, and a new "Delete this playlist" action (with confirmation).
+- Existing preview collections are not silently lost: the collection stored in this browser for the signed-in account is imported once and cleared only after the server confirms. The guest collection stays in guest mode (see ARCHITECTURE.md for why). Joined communities remain browser-local.
+
+### Checked in the cloud workspace
+
+| Check | Result |
+| --- | --- |
+| All four migrations on a fresh PostgreSQL 16; blank title rejected; `FOR NO KEY UPDATE` lock followed by playlist insert in the same transaction | Passed |
+| Library contract tests (titles, creation body, UUIDs, import bounds) | 4/4 passed (plus 6 catalog contract tests) |
+| Frontend logic tests (legacy IDs, API mapping, import titles and bounds) | 5/5 passed |
+
+### Verified on the development machine
+
+The first local run found one TypeScript error (Express 5 types route parameters as `string | string[]`); fixed with a typed parameter helper in the library router. Then:
+
+| Check | Result |
+| --- | --- |
+| `npm run db:migrate` | `202611170002_library` applied |
+| `npm run typecheck`, `npm run build` | Passed |
+| `npm test` | 41 API tests and 5 frontend tests passed |
+| `npm run test:db -w apps/api` | 4/4 passed, including `library.integration.mjs` (two accounts, isolation, persistence across a new API instance, idempotency, import, concurrent additions, deletion) |
+| Browser journey before commit | Sign in → like → create playlist → add track → reload → content remains; sign out shows the separate guest library |
+
+Not covered: the library loading/error states and a failed import were not exercised in a browser; the 200-playlist and 500-track limits are tested only at the API layer.

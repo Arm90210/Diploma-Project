@@ -6,15 +6,19 @@ import type { registrationService } from './modules/auth/registration.js';
 import type { SessionService } from './modules/auth/sessions.js';
 import { catalogRouter } from './modules/catalog/router.js';
 import type { CatalogService } from './modules/catalog/service.js';
+import { libraryRouter } from './modules/library/router.js';
+import type { LibraryService } from './modules/library/service.js';
 
-type Dependencies = { updateProfile?: UpdateProfile; checkDatabase: () => Promise<void>; register?: ReturnType<typeof registrationService>; allowedOrigins?: string[]; sessions?: SessionService; secureCookies?: boolean; catalog?: CatalogService };
+type Dependencies = { updateProfile?: UpdateProfile; checkDatabase: () => Promise<void>; register?: ReturnType<typeof registrationService>; allowedOrigins?: string[]; sessions?: SessionService; secureCookies?: boolean; catalog?: CatalogService; library?: LibraryService };
 
 // Inject the database check so HTTP behavior can be tested without PostgreSQL.
-export function createApp({ checkDatabase, register, sessions, updateProfile, catalog, secureCookies = process.env.NODE_ENV === 'production', allowedOrigins = [] }: Dependencies) {
+export function createApp({ checkDatabase, register, sessions, updateProfile, catalog, library, secureCookies = process.env.NODE_ENV === 'production', allowedOrigins = [] }: Dependencies) {
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet());
   if (register || sessions) app.use('/api/auth', authRouter({ register, sessions, allowedOrigins, secureCookies }));
+  // Before the global 32 KiB JSON parser: the library router sets its own per-route body limits.
+  if (sessions && library) app.use('/api/library', libraryRouter(sessions, library, allowedOrigins, secureCookies));
   app.use(express.json({ limit: '32kb' }));
   if (sessions && updateProfile) app.use('/api/users', usersRouter(sessions, updateProfile, allowedOrigins, secureCookies));
   if (catalog) app.use('/api/catalog', catalogRouter(catalog));

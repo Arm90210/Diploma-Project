@@ -34,8 +34,8 @@ Done when: upload a real permitted track, find it and play/seek it in the browse
 
 ## Phase 3 — Personal library
 
-- [ ] 3.1 Implement likes and saved-track views.
-- [ ] 3.2 Implement playlist creation, membership, ordering and deletion.
+- [x] 3.1 Implement likes and saved-track views. (Account-backed, 2026-11-17.)
+- [x] 3.2 Implement playlist creation, membership, ordering and deletion. (2026-11-17; reordering by drag is not offered yet — tracks keep insertion order.)
 - [ ] 3.3 Add public/private visibility and shareable public playlist pages.
 - [ ] 3.4 Add track ratings/reviews and test ownership and visibility.
 

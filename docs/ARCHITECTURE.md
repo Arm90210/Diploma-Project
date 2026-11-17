@@ -93,6 +93,23 @@ A track is returned as `{ id, slug, title, artist: { id, name }, genres, duratio
 
 The demo catalog is inserted by `npm run db:seed` (`src/modules/catalog/seed.ts`): one transaction, rows matched by a fixed artist ID, unique genre name and unique track slug, so re-running it updates the same rows and keeps track UUIDs stable. It never deletes other catalog data. The demo studies are marked REAL: they are actual playable catalog entries; "synthesized audio" is unrelated to the SYNTHETIC label, which is reserved for generated evaluation users and events.
 
+## Library HTTP contract (implemented 2026-11-17)
+
+All routes require a valid session. The owner is always the session user; IDs in the URL only choose the item, and a playlist owned by someone else returns 404 (its existence is not revealed). Mutations also require an exact allowed `Origin`; bodies must be JSON. Path IDs must be UUIDs (400 otherwise). Only REAL catalog tracks can be liked or added (404 otherwise).
+
+| Request | Success |
+| --- | --- |
+| `GET /api/library` | 200 `{ library: { likedTrackIds, playlists: [{ id, title, isPublic, trackIds }] } }`, likes in like order, tracks in playlist order |
+| `PUT` / `DELETE /api/library/likes/:trackId` | 204, idempotent |
+| `POST /api/library/playlists` `{ title }` | 201 `{ playlist }`; title trimmed, 1–80 characters, no control characters; at most 200 playlists (409) |
+| `DELETE /api/library/playlists/:playlistId` | 204; memberships cascade |
+| `PUT` / `DELETE /api/library/playlists/:playlistId/tracks/:trackId` | 204, idempotent; appended at the end; at most 500 tracks (409) |
+| `POST /api/library/import` `{ liked, playlists: [{ title, trackIds }] }` | 200 `{ library, imported: { likesAdded, playlistsCreated, playlistsMerged, tracksAdded, skipped } }` |
+
+Concurrency: adding a track locks the playlist row (`FOR NO KEY UPDATE`) before computing the next position, so parallel additions never collide on the unique `(playlistId, position)` key. Positions only define order; removal leaves gaps rather than renumbering (renumbering under a non-deferrable unique key can conflict mid-update). Creating a playlist locks the owner row so the 200-playlist limit cannot be exceeded by parallel requests. The database also rejects blank titles (`Playlist_title_not_blank`).
+
+Guests and import: guests keep likes and playlists in `localStorage` (per account ID or `guest`). After sign-in, the browser collection stored for *that account* is sent once to `/import` in one transaction (all or nothing). Legacy IDs and removed tracks are skipped and counted; likes are de-duplicated; a playlist whose title already exists is merged rather than duplicated, so a retry after a lost response is harmless. The browser copy is cleared only after the server confirms. The guest collection is not imported automatically into whichever account signs in next, because on a shared computer it may belong to someone else; it remains available when signed out. Joined communities remain browser-local until the communities step.
+
 ## Community extension
 
 See [Communities and social discovery](COMMUNITIES.md) for the planned social entities, membership history, community preference vectors, normalized matching score, chronological evaluation and Community Pulse privacy rules. These extend the existing models and arrive in later migrations and feature phases.
