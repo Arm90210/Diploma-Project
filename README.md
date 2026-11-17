@@ -4,11 +4,43 @@ Bachelor's diploma in Applied Mathematics.
 
 **Official title:** «Երաժշտական նախասիրությունների և պահանջարկի դինամիկայի վերլուծության համակարգի մշակում»
 
-MusicSphere is the working product name: music streaming and social discovery through people and communities. Implemented so far: the foundation, database-backed accounts and sessions (register, log in, sign out, edit display name), a responsive MusicSphere interface with a working audio player, a **database-backed music catalog** served by `/api/catalog` (seeded with eight original demo studies), **account-backed likes and playlists** (`/api/library`; guests keep a browser-only library), **track pages with qualified listening history** (`/api/listening`, policy `listen-v1`), **personal recommendations** (`/api/recommendations`; cosine neighbours vs. popularity, evaluated chronologically in [EVALUATION-RECOMMENDATIONS.md](docs/EVALUATION-RECOMMENDATIONS.md)), and **Music Pulse** (`/api/pulse`): an interactive world map of 236 countries, regional genre distributions, total-variation comparisons and the explainable trend score over real data (with privacy suppression) or a clearly labelled deterministic synthetic demonstration (`npm run db:synthetic`), evaluated in [EVALUATION-PULSE.md](docs/EVALUATION-PULSE.md). Still preview-only (browser-local or illustrative): community membership and posts. Not yet implemented: uploads, listening-event collection, friends, recommendations and real analytics. See [PROGRESS.md](docs/PROGRESS.md) for exactly what is verified.
+MusicSphere is a music streaming web application that records **qualified listens** and analyses them mathematically: how genre preferences differ between countries, which tracks are genuinely trending, and what each listener might like next. Every model is implemented as tested code and evaluated reproducibly on synthetic data with planted, known patterns.
+
+## Features
+
+| Area | What works |
+| --- | --- |
+| Accounts | Register, sign in/out, edit display name; hashed passwords, secure session cookies, rate limits |
+| Catalog and player | Eight original demo tracks from PostgreSQL; search, genre filter, track pages; player with queue, shuffle, repeat and seeking |
+| Library | Likes and playlists saved to your account (guests: in the browser only) |
+| Listening data | A listen counts only after real playback (rule `listen-v1`: ≥ 30 s or half the track; pauses and skipping ahead earn nothing; a replay counts again after 30 min); listening history |
+| Music Pulse | Interactive world map of 236 countries; genre shares per country and total-variation comparisons; daily listeners; explainable trend score; any group under 10 listeners is hidden |
+| Recommendations | "For you" from listeners with similar genre taste (cosine similarity), with popularity as fallback |
+| Privacy | Country shared only with explicit consent; withdrawing removes it from past listens; real and synthetic data never mixed |
+
+## Results (synthetic evaluation)
+
+Measured on the deterministic dataset `synthetic-v2` (seed 20261117): 908 listeners in 17 countries, 52 126 counted listens, with planted breakouts, a one-day spike, a tiny-audience track and country-level tastes.
+
+| Question | Result | Report |
+| --- | --- | --- |
+| Does the trend score find the planted breakout tracks? | Precision@3 = **1.00**, versus 0.33 for raw growth (fooled by the tiny-audience track) and 0.33 for popularity (fooled by the one-day spike) | [EVALUATION-PULSE.md](docs/EVALUATION-PULSE.md) |
+| Are country taste differences recovered? | Estimated vs. planted between-country distances correlate **0.905** (136 pairs); smaller countries are noisier | [EVALUATION-PULSE.md](docs/EVALUATION-PULSE.md) |
+| Do recommendations beat popularity? | Chronological 70/10/20 split, 850 test users: NDCG@10 **0.409** vs. 0.294, Precision@10 0.162 vs. 0.125, Recall@10 0.571 vs. 0.445; NDCG difference 95% interval [0.095, 0.133] | [EVALUATION-RECOMMENDATIONS.md](docs/EVALUATION-RECOMMENDATIONS.md) |
+
+These show that the methods recover patterns deliberately built into simple synthetic data; they are not measurements of real listener behaviour. The formulas and their limitations are in [MATHEMATICS.md](docs/MATHEMATICS.md).
+
+## Real, synthetic and preview
+
+| Real (PostgreSQL) | Synthetic (labelled "Synthetic demonstration") | Browser-only | Preview / not built yet |
+| --- | --- | --- | --- |
+| Accounts, catalog, likes and playlists, counted listens, history, country consent, recommendations, Music Pulse "Our platform" | Music Pulse demonstration data and both evaluations (`npm run db:synthetic`) | Guest library, joined communities, opened local audio files | Communities (cards, member counts and posts are illustrative), friends, track uploads, ratings, public playlists |
+
+With few real users, "Our platform" honestly shows "not enough listeners" — that is the privacy threshold working, not an error.
 
 ## Start locally
 
-Use **Node.js 24 with its bundled npm 11**, and Docker with the Compose plugin. `.nvmrc` selects Node 24. With an existing nvm installation, activate it before running project commands:
+Use **Node.js 24 with its bundled npm 11**, and Docker with the Compose plugin. `.nvmrc` selects Node 24:
 
 ```sh
 source ~/.nvm/nvm.sh
@@ -16,98 +48,87 @@ nvm install
 nvm use
 ```
 
-This changes the active shell's runtime; a new terminal may need `nvm use` again. Do not combine the system Node 20 executable with npm 12.
-
-Run these commands from the repository root:
+A new terminal may need `nvm use` again. Do not combine the system Node 20 executable with npm 12. Then, from the repository root:
 
 ```sh
 npm ci
-cp apps/api/.env.example apps/api/.env
-# Skip the copy if you have already configured .env.
-docker compose up -d --wait db
+cp apps/api/.env.example apps/api/.env   # skip if .env is already configured
+docker compose up -d --wait db           # prefix with sudo if your account lacks Docker access
 npm run db:generate
 npm run db:migrate
-npm run db:seed     # original demo catalog; safe to repeat
-npm run db:synthetic # synthetic demonstration data for Music Pulse; safe to repeat
+npm run db:seed        # demo tracks and the 236 countries; safe to repeat
+npm run db:synthetic   # synthetic demonstration data; safe to repeat
 npm run dev
 ```
 
-Open <http://localhost:5173>. The API listens on <http://localhost:3001>. Prisma commands run in `apps/api`, where they load `.env`. The local example credentials are for development only. If PostgreSQL is already installed, create a development database and change `DATABASE_URL` instead of using Docker. Do not expose this development database publicly.
+Open <http://127.0.0.1:5173>; the API listens on <http://127.0.0.1:3001>. A guided walkthrough is in [DEMO.md](docs/DEMO.md).
 
-The frontend and health endpoint work without PostgreSQL; the database card will show unavailable. Readiness reports connectivity only, not whether migrations have been applied. If API startup fails, inspect the terminal; if the API works but PostgreSQL is unavailable, verify the container and connection URL. If port 5432 is occupied, use your existing local server or adjust both the Compose port and URL.
+Prisma commands run in `apps/api`, where they load `.env`; the example credentials are for local development only and the database must not be exposed publicly. If PostgreSQL is already installed, create a development database and change `DATABASE_URL` instead of using Docker; if port 5432 is taken, adjust both the Compose port and the URL. If the dev server reports "Port 5173 is already in use", an earlier dev server is still running — stop it first.
 
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Run Vite and Express together; stop both with Ctrl+C |
+| `npm run dev` | Run the web app and API together; stop both with Ctrl+C |
 | `npm run typecheck` | Check both TypeScript apps |
-| `npm run build` | Compile API and build frontend into their respective `dist` folders |
-| `npm run test:db -w apps/api` | Build API and verify PostgreSQL constraints, login lifecycle, catalog, library ownership/persistence and listening rules; fixtures are rolled back or cleaned up (the demo catalog itself is seeded) |
-| `npm test` | API HTTP/unit tests (health, auth, profile, catalog, library, listening policy and API) and frontend logic tests; no database needed |
-| `npm run db:validate` | Validate Prisma schema (requires `.env`, not a live database) |
-| `npm run db:generate` | Generate typed Prisma client after schema edits |
-| `npm run db:migrate` | Apply committed migrations to PostgreSQL |
-| `npm run db:seed` | Insert or update the eight original demo tracks and the country list (matched by slug/code; never deletes other data) |
-| `npm run db:synthetic` | Generate the deterministic synthetic demonstration dataset (replaces only the generator's own SYNTHETIC rows) |
-| `npm run pulse:evaluate` | Re-run the Music Pulse evaluation in memory and rewrite docs/EVALUATION-PULSE.md |
-| `python3 scripts/build-world-map.py <ne_50m_admin_0_countries.geojson>` | Rebuild the world map and country list from Natural Earth (public domain); only needed to change map data |
-| `npm run recommend:evaluate` | Re-run the chronological recommendation evaluation in memory and rewrite docs/EVALUATION-RECOMMENDATIONS.md |
-| `npm exec -w apps/api -- prisma migrate dev --name descriptive_name` | Create a migration after changing the schema, with a local database running |
-| `docker compose stop` | Stop database, preserve stored data |
+| `npm test` | Unit and HTTP tests (no database needed) |
+| `npm run build` | Compile the API and build the web app |
+| `npm run test:db -w apps/api` | Live PostgreSQL tests: constraints, sessions, catalog, library ownership, listening rules, Music Pulse round trip and consent, recommendations (fixtures are cleaned up; the demo catalog and synthetic dataset are (re)written) |
+| `npm run db:generate` / `db:validate` / `db:migrate` | Prisma client, schema check, apply migrations |
+| `npm run db:seed` | Insert or update demo tracks and countries (never deletes other data) |
+| `npm run db:synthetic` | Regenerate the synthetic dataset (replaces only the generator's own rows) |
+| `npm run pulse:evaluate` | Re-run the Music Pulse evaluation in memory → `docs/EVALUATION-PULSE.md` |
+| `npm run recommend:evaluate` | Re-run the recommendation evaluation in memory → `docs/EVALUATION-RECOMMENDATIONS.md` |
+| `python3 scripts/build-world-map.py <ne_50m_admin_0_countries.geojson>` | Rebuild the map and country list from Natural Earth (only to change map data) |
+| `npm exec -w apps/api -- prisma migrate dev --name descriptive_name` | Create a migration after changing the schema |
+| `docker compose stop` | Stop the database, keeping its data |
 
-Production deployment is a later phase. `npm run start -w apps/api` runs the compiled API. `npm run preview -w apps/web` previews the frontend build locally, but does **not** proxy API requests; integrated development uses `npm run dev`. A production reverse proxy will serve the frontend and route `/api` to Express under one origin.
+Production deployment is a later phase. `npm run start -w apps/api` runs the compiled API; `npm run preview -w apps/web` previews the web build but does not proxy `/api`.
 
-## Understand the files
+## How it fits together
+
+```text
+Browser (React)  ──/api/...──▶  API (Express)  ──Prisma──▶  PostgreSQL
+```
+
+During development Vite forwards `/api` requests to Express. Express validates input and checks the session before any database work; the browser never sees database credentials. One repository, one database, no microservices: the mathematics is ordinary, unit-tested TypeScript.
 
 ```text
 apps/
-  web/                     React + TypeScript + Vite + Tailwind
-    src/App.tsx            MusicSphere interface (pages, library, communities)
-    src/lib/useCatalog.ts  Loads tracks from /api/catalog
-    src/lib/useLibrary.ts  Guest (browser) or account (API) library
-    src/lib/useListening.ts Reports playback heartbeats for signed-in users
-    src/styles.css         Responsive layout and theme
-    vite.config.ts         /api development proxy
-  api/                     Express + TypeScript
-    src/app.ts             HTTP app; database checker injected for tests
-    src/server.ts          Listen on a port, connect Prisma, stop cleanly
-    src/db.ts              Shared Prisma client / connection pool
-    src/modules/catalog/   Catalog API, validation, demo seed data
-    src/modules/library/   Signed-in likes/playlists API and browser-library import
-    src/modules/listening/ Playback sessions, heartbeats, qualification policy, history
-    src/modules/analytics/ Music Pulse formulas, aggregation, synthetic generator, evaluation
-    src/modules/location/  Optional country choice with consent and withdrawal
-    src/modules/recommend/ Taste vectors, cosine neighbours, popularity baseline, evaluation
-    src/seed.ts            `npm run db:seed` entry point
-    prisma/schema.prisma   Relational data model
-    prisma/migrations/     Versioned SQL, including database constraints
-    test/app.test.ts       HTTP integration tests
-compose.yaml               Local PostgreSQL with persistent storage
-docs/                      Scope, architecture, mathematics, progress
+  web/                         React 19 + TypeScript + Vite (custom CSS, Tailwind available)
+    src/App.tsx                Pages: Discover, Library, Communities, Music Pulse, Profile, track pages
+    src/components/            Player, TrackList, TrackPage, Pulse, WorldMap, Profile, RegionConsent, …
+    src/lib/                   API client and hooks: useCatalog, useLibrary, useListening, usePlayer
+    public/audio, public/art   Original demo audio and covers (scripts/generate-demo-assets.py)
+    public/geo/countries.json  World map (Natural Earth, public domain; scripts/build-world-map.py)
+    test/                      Frontend logic tests
+  api/                         Express 5 + TypeScript + Prisma 7
+    src/modules/auth, users    Accounts, sessions, profile
+    src/modules/catalog        Catalog API and demo seed
+    src/modules/library        Likes and playlists
+    src/modules/listening      Playback sessions, heartbeats, listen-v1 policy, history
+    src/modules/analytics      Music Pulse formulas, aggregation, synthetic generator, evaluation, countries
+    src/modules/location       Country choice with consent and withdrawal
+    src/modules/recommend      Taste vectors, cosine neighbours, popularity baseline, evaluation
+    prisma/                    Schema and versioned SQL migrations (with database constraints)
+    test/                      *.test.ts (no database) and *.integration.mjs (live PostgreSQL)
+scripts/                       Demo-asset and world-map generators
+docs/                          Design, mathematics, evaluation and progress documents
+compose.yaml                   Local PostgreSQL with persistent storage
 ```
 
-The browser sends `fetch('/api/...')`. Vite forwards that request to Express in development. Express validates inputs and applies authorization before using Prisma; Prisma translates queries into PostgreSQL operations. Express returns JSON, which React displays. The browser never receives database credentials or queries PostgreSQL directly. Health/readiness, authentication, profile and read-only catalog endpoints exist. Upload storage and audio range responses arrive in Phase 2.
+## Documents
 
-We use one repository and one database, without microservices, Redis, or a separate Python service. Mathematical functions can be ordinary tested TypeScript modules. Prisma 7.10.1, its client and PostgreSQL adapter are pinned together. `apps/api/prisma.config.ts` configures CLI migrations; `src/db.ts` configures the runtime connection pool. Tailwind uses its Vite integration. Recharts is deferred until there is real analytics data to plot.
+- [STEPS.md](docs/STEPS.md) — build checklist, phase by phase
+- [PROGRESS.md](docs/PROGRESS.md) — dated log of what was built and exactly how it was verified
+- [DEMO.md](docs/DEMO.md) — demonstration walkthrough
+- [MATHEMATICS.md](docs/MATHEMATICS.md) — every formula, implementation choices and limitations
+- [EVALUATION-PULSE.md](docs/EVALUATION-PULSE.md), [EVALUATION-RECOMMENDATIONS.md](docs/EVALUATION-RECOMMENDATIONS.md) — evaluation results
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — data model, API contracts, privacy rules
+- [AUTHENTICATION.md](docs/AUTHENTICATION.md) — authentication and session contract
+- [ROADMAP.md](docs/ROADMAP.md) — scope, phases, acceptance criteria
+- [COMMUNITIES.md](docs/COMMUNITIES.md) — planned communities, friends and Community Pulse
 
-## Project documents
+## Principles
 
-Start with the [step-by-step build checklist](docs/STEPS.md). Phase 1 is verified locally; accounts and the interface milestone followed. Catalog, account library, track pages, qualified listening history, Music Pulse and recommendations are done; next are real communities and diploma readiness.
-
-- [Communities, friends, discovery and Community Pulse](docs/COMMUNITIES.md)
-- [Authentication API and session contract](docs/AUTHENTICATION.md)
-- [Scope, phases, acceptance criteria](docs/ROADMAP.md)
-- [Database design and architecture](docs/ARCHITECTURE.md)
-- [Mathematical models and evaluation plan](docs/MATHEMATICS.md)
-- [Progress and verification results](docs/PROGRESS.md)
-
-Only self-created or authorized music is allowed. All future statistics describe **this platform**, not Spotify or the wider population. Synthetic datasets must be separately labeled and filtered. Regional analytics require explicit consent, coarse regions, and suppression of small cohorts. These are design requirements; their runtime enforcement will be implemented and tested in the relevant phases.
-
-## Implementation references
-
-- [Vite setup and runtime requirements](https://vite.dev/guide/)
-- [Tailwind's Vite integration](https://tailwindcss.com/docs/installation/using-vite)
-- [Prisma 7 upgrade guide](https://www.prisma.io/docs/guides/upgrade-prisma-orm/v7)
-
-PostgreSQL is now running locally and the initial migration and live database checks have passed. Desktop browser verification passed, including connection refresh and section navigation; mobile checks remain later work. See the progress log for exact results. If your account lacks Docker socket access, prefix the Compose startup command with `sudo`; Prisma commands run without sudo.
+Only self-created or authorized music is allowed; the demo audio and covers are original, and the map data is public domain (Natural Earth). Statistics describe **this platform**, not Spotify or the wider population. Synthetic data is labelled and stored separately from real data. Regional analytics use only explicitly shared, country-level locations and hide any group smaller than 10 listeners — a project-level safeguard, not a claim of formal anonymity.
