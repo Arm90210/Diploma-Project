@@ -14,11 +14,13 @@ import { pulseRouter } from './modules/analytics/router.js';
 import type { PulseService } from './modules/analytics/service.js';
 import { locationRouter } from './modules/location/router.js';
 import type { LocationService } from './modules/location/service.js';
+import { recommendationRouter } from './modules/recommend/router.js';
+import type { RecommendationService } from './modules/recommend/service.js';
 
-type Dependencies = { updateProfile?: UpdateProfile; checkDatabase: () => Promise<void>; register?: ReturnType<typeof registrationService>; allowedOrigins?: string[]; sessions?: SessionService; secureCookies?: boolean; catalog?: CatalogService; library?: LibraryService; listening?: ListeningService; pulse?: PulseService; location?: LocationService };
+type Dependencies = { updateProfile?: UpdateProfile; checkDatabase: () => Promise<void>; register?: ReturnType<typeof registrationService>; allowedOrigins?: string[]; sessions?: SessionService; secureCookies?: boolean; catalog?: CatalogService; library?: LibraryService; listening?: ListeningService; pulse?: PulseService; location?: LocationService; recommendations?: RecommendationService };
 
 // Inject the database check so HTTP behavior can be tested without PostgreSQL.
-export function createApp({ checkDatabase, register, sessions, updateProfile, catalog, library, listening, pulse, location, secureCookies = process.env.NODE_ENV === 'production', allowedOrigins = [] }: Dependencies) {
+export function createApp({ checkDatabase, register, sessions, updateProfile, catalog, library, listening, pulse, location, recommendations, secureCookies = process.env.NODE_ENV === 'production', allowedOrigins = [] }: Dependencies) {
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet());
@@ -31,6 +33,7 @@ export function createApp({ checkDatabase, register, sessions, updateProfile, ca
   if (catalog) app.use('/api/catalog', catalogRouter(catalog));
   if (pulse) app.use('/api/pulse', pulseRouter(pulse));
   if (sessions && location) app.use('/api/location', locationRouter(sessions, location, allowedOrigins, secureCookies));
+  if (sessions && recommendations) app.use('/api/recommendations', recommendationRouter(sessions, recommendations, secureCookies));
 
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', service: 'music-api', phase: 1 });

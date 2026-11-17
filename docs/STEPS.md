@@ -72,10 +72,10 @@ Done when: popularity and growth are distinguishable and small cohorts do not re
 
 ## Phase 6 — Song recommendations
 
-- [ ] 6.1 Implement genre vectors and cosine similarity with hand-worked fixtures.
-- [ ] 6.2 Implement neighbor recommendations and popularity fallback.
-- [ ] 6.3 Add recommendation explanations and discovery UI.
-- [ ] 6.4 Run chronological baseline evaluation; report Precision@K, Recall@K, NDCG@K and coverage.
+- [x] 6.1 Implement genre vectors and cosine similarity with hand-worked fixtures. (2026-11-17.)
+- [x] 6.2 Implement neighbor recommendations and popularity fallback. (2026-11-17.)
+- [x] 6.3 Add recommendation explanations and discovery UI. (Discover → For you, 2026-11-17.)
+- [x] 6.4 Run chronological baseline evaluation; report Precision@K, Recall@K, NDCG@K and coverage. (docs/EVALUATION-RECOMMENDATIONS.md, `npm run recommend:evaluate`.)
 
 Done when: a reproducible report compares the algorithm against popularity without future-data leakage.
 

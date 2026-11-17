@@ -136,6 +136,10 @@ Computation loads 34 days of one origin's events and runs the pure `computePulse
 
 Known privacy limitation: with "All regions" selected, global numbers minus visible regions can narrow down hidden regions plus people without a region. Filters are restricted (origin and one region) and windows are fixed to reduce differencing, but this is not formal anonymity.
 
+## Recommendations (implemented 2026-11-17)
+
+`GET /api/recommendations?limit=1..20` (session required, `no-store`) returns `{ recommendations: [{ track, reason }], basis, rules }`. It uses REAL data only: counted listens of real accounts in the last 180 days on REAL catalog tracks. Tracks the user heard in that window or liked are excluded. Personal picks (`reason: neighbours`) use the cosine-neighbour method of MATHEMATICS.md section 1 with 20 neighbours and require at least 5 similar listeners; otherwise platform popularity (`popular`) is used, and a short list is completed with unheard catalog tracks (`catalog`). Explanations are qualitative ("similar listeners play this") and never name or count other people. Plays started from Discover → For you are recorded with source `RECOMMENDATION`. The model is refitted per request, which is adequate for the demonstration's data volume.
+
 ## Community extension
 
 See [Communities and social discovery](COMMUNITIES.md) for the planned social entities, membership history, community preference vectors, normalized matching score, chronological evaluation and Community Pulse privacy rules. These extend the existing models and arrive in later migrations and feature phases.

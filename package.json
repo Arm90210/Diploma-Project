@@ -18,7 +18,8 @@
     "db:migrate": "npm run db:migrate -w apps/api",
     "db:seed": "npm run db:seed -w apps/api",
     "db:synthetic": "npm run db:synthetic -w apps/api",
-    "pulse:evaluate": "npm run pulse:evaluate -w apps/api"
+    "pulse:evaluate": "npm run pulse:evaluate -w apps/api",
+    "recommend:evaluate": "npm run recommend:evaluate -w apps/api"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

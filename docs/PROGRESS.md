@@ -239,3 +239,34 @@ The first local run found one error in the new live test itself (it called `logi
 | Browser check before commit | Music Pulse synthetic view (breakouts lead trending, regions change the genre mix), Our platform shows the suppression message, Profile country sharing and withdrawal |
 
 Not covered: mobile layout of the new Pulse table was not inspected; Pulse performance was not measured beyond the demonstration volume.
+
+## 2026-11-17 — Song recommendations and chronological evaluation
+
+### Implemented
+
+- `recommend/model.ts` (pure): taste vectors with fractional genre allocation and the daily cap, cosine similarity, up to k positive neighbours, `score(u,t) = Σ sim·I / Σ sim`, deterministic ties (score, training listeners, track ID), known-track exclusion, popularity baseline and fallback, optional popularity fill.
+- `recommend/evaluate.ts` (pure): one global chronological 70/10/20 split; everything fitted on training only; neighbour count (5/10/20/40) and fill chosen on validation by NDCG@10; test reported once; Precision@10 (denominator 10), Recall@10, NDCG@10, user/catalog coverage, personalised share, cold-start count, paired user bootstrap. `npm run recommend:evaluate` writes docs/EVALUATION-RECOMMENDATIONS.md.
+- `GET /api/recommendations` (REAL data only, 180-day history, liked and heard tracks excluded, at least 5 similar listeners for personal picks, qualitative explanations). Discover → For you section; plays from it are recorded with source `RECOMMENDATION`.
+
+### Evaluation results (synthetic; full tables in EVALUATION-RECOMMENDATIONS.md)
+
+Validation chose k = 40 without fill (k = 20 is within 0.003 NDCG). On the test period (563 users): cosine neighbours NDCG@10 0.419, Precision@10 0.171, Recall@10 0.590 versus popularity 0.320, 0.139, 0.473. Paired bootstrap 95% intervals for the differences are all above zero (NDCG +0.099 [0.080, 0.120]). No cold-start users exist in this dataset (all synthetic users are active from week one); the fallback is covered by unit tests. Caveats recorded in the report: genre-planted data favours genre-based neighbours; the 36-track catalogue makes recall high for both methods.
+
+### Checked in the cloud workspace
+
+| Check | Result |
+| --- | --- |
+| Recommendation tests (MATHEMATICS.md cosine example, zero vectors, fractional allocation and cap, neighbour selection, hand-worked scores, tie-breaks, fallbacks, privacy minimum, fill, hand-worked P/R/NDCG, split ordering, bootstrap determinism, evaluation outcome) | 11/11 passed |
+| All other pure tests | 37/37 passed |
+
+### Verified on the development machine
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck`, `npm run build` | Passed |
+| `npm test` | 87 API tests and 5 frontend tests passed |
+| `npm run test:db -w apps/api` | 7/7 passed, including `recommend.integration.mjs` (six similar real fixture listeners → personal picks led by their shared tracks; heard and liked tracks excluded; synthetic tracks never recommended; a new account gets non-personal picks) |
+
+Browser finding and fix: the developer account had already heard all 8 demo tracks, so the recommendation list was empty and the first version hid the For you section silently. The section now always appears for signed-in users with explicit loading, error-with-retry and "you've heard everything we could suggest" states (explaining the 180-day/liked exclusion and the catalog size). Checked in the browser after the fix; the typecheck is re-run as part of the commit command.
+
+Not covered: personal ("similar listeners") picks were only exercised by the live test, because the development database has a single real listener; real-data recommendation quality cannot be measured until there are real users.

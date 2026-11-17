@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { api, ApiError } from './api';
 import type { Track } from './catalog';
 
-export type ListenSource = 'CATALOG' | 'SEARCH' | 'PLAYLIST';
+export type ListenSource = 'CATALOG' | 'SEARCH' | 'PLAYLIST' | 'RECOMMENDATION';
 type SessionView = { id: string; heartbeatIntervalMs: number; counted: boolean };
 type Active = { trackId: string; id: string | null; starting: boolean; sequence: number; counted: boolean; dead: boolean; queue: Promise<unknown>; heartbeatMs: number };
 

@@ -14,6 +14,7 @@
     "db:seed": "tsx src/seed.ts",
     "db:synthetic": "tsx src/synthetic.ts",
     "pulse:evaluate": "tsx src/evaluate-pulse.ts",
+    "recommend:evaluate": "tsx src/evaluate-recommendations.ts",
     "test:db": "npm run build && node --test --test-concurrency=1 test/*.integration.mjs"
   },
   "dependencies": {
